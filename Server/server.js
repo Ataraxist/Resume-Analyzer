@@ -1,70 +1,117 @@
 import express, { json } from 'express';
 import cors from 'cors';
+import helmet from 'helmet';
+import rateLimit from 'express-rate-limit';
 
-const app = express();
-const PORT = 3000;
-
-// Connect to the Mongo DB on server start
+import config from './config/config.js';
+import { globalErrorHandler } from './middleware/errorHandler.js';
 import { connectDB } from './data/db.js';
-connectDB();
 
-/**
- * require routers
- */
+// Import routers
 import oNetRouter from './routes/oNetRouter.js';
+import uploadRouter from './routes/uploadRouter.js';
 // import authRouter from './routes/authRouter.js';
 // import dataRouter from './routes/dataRouter.js';
-import uploadRouter from './routes/uploadRouter.js';
 
-/**
- * handle parsing request body
- */
-app.use(cors());
-app.use(json());
-app.use(express.urlencoded({ extended: true }));
+const app = express();
 
-/**
- * define route handlers`
- */
-app.use('/job', (req, res, next) => {
+// Connect to the Mongo DB on server start
+connectDB();
+
+// Security middleware
+app.use(helmet());
+
+// Rate limiting
+const limiter = rateLimit({
+  windowMs: config.rateLimit.windowMs,
+  max: config.rateLimit.max,
+  message: {
+    error: 'Too many requests from this IP, please try again later.',
+  },
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+app.use('/upload', limiter); // Apply rate limiting to upload routes
+
+// CORS configuration
+app.use(cors({
+  origin: config.server.corsOrigin,
+  credentials: true,
+}));
+
+// Body parsing middleware
+app.use(json({ limit: '10mb' }));
+app.use(express.urlencoded({ extended: true, limit: '10mb' }));
+
+// Request logging middleware
+app.use((req, res, next) => {
+  console.log(`${new Date().toISOString()} - ${req.method} ${req.path}`);
+  next();
+});
+
+// Health check endpoint
+app.get('/health', (req, res) => {
+  res.status(200).json({
+    status: 'OK',
+    timestamp: new Date().toISOString(),
+    environment: config.server.environment,
+  });
+});
+
+// API routes
+app.use('/api/job', (req, res, next) => {
   console.log('🤝 Incoming request for Job Titles!');
   oNetRouter(req, res, next);
 });
 
-app.use('/upload', (req, res, next) => {
+app.use('/api/upload', (req, res, next) => {
   console.log('📜 Incoming resume upload!');
   uploadRouter(req, res, next);
 });
 
-// app.use('/', (req, res, next) => {
-//   console.log('🫚 Incoming request for root!');
-//   authRouter(req, res, next);
-// });
-
-// catch-all route handler for any requests to an unknown route
-app.use((req, res) => {
-  console.log('🔒 404 Response Sent!');
-  res.status(404).send('404 Page Not Found');
+// Legacy routes (for backward compatibility)
+app.use('/job', (req, res, next) => {
+  console.log('🤝 Incoming request for Job Titles! (Legacy)');
+  oNetRouter(req, res, next);
 });
 
-// global error handler
-app.use((err, req, res, next) => {
-  console.log('❌ Error triggered: ', err);
-  const defaultError = {
-    log: 'Express error handler caught unknown middleware error',
-    status: 500,
-    message: { err: 'An error occurred' },
-  };
-  const errorObj = Object.assign(defaultError, err);
-  console.log(errorObj.log);
-  return res.status(errorObj.status).send(errorObj.message);
+app.use('/upload', (req, res, next) => {
+  console.log('📜 Incoming resume upload! (Legacy)');
+  uploadRouter(req, res, next);
 });
 
-/**
- * start server
- */
-app.listen(PORT, () => {
-  console.log(`Server listening on port: ${PORT}`);
+// 404 handler for undefined routes
+app.use('*', (req, res) => {
+  console.log(`🔒 404 Response Sent for: ${req.method} ${req.originalUrl}`);
+  res.status(404).json({
+    status: 'error',
+    message: 'Route not found',
+    path: req.originalUrl,
+  });
+});
+
+// Global error handler
+app.use(globalErrorHandler);
+
+// Graceful shutdown
+process.on('SIGTERM', () => {
+  console.log('SIGTERM received. Shutting down gracefully...');
+  process.exit(0);
+});
+
+process.on('SIGINT', () => {
+  console.log('SIGINT received. Shutting down gracefully...');
+  process.exit(0);
+});
+
+// Start server
+app.listen(config.server.port, () => {
+  console.log(`
+🚀 Server is running!
+📍 Port: ${config.server.port}
+🌍 Environment: ${config.server.environment}
+🕐 Started at: ${new Date().toISOString()}
+  `);
 });
 
 export default app;

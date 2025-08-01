@@ -1,112 +1,161 @@
-import React, { useState, useEffect } from 'react';
+import React, { useEffect } from 'react';
 import { useLocation } from 'react-router-dom';
+import { useAppContext } from '../../context/AppContext';
+import useFileUpload from '../../hooks/useFileUpload';
+import useResumeAnalysis from '../../hooks/useResumeAnalysis';
+import useJobSelection from '../../hooks/useJobSelection';
+
 import Toolbar from './Toolbar';
 import ResumeViewer from './ResumeViewer';
 import PDFViewer from './PDFViewer';
 import AnalysisPanel from './AnalysisPanel';
-import './Dashboard.css';
 import DocxToHtml from './DocxToHtml';
+import ErrorBoundary from '../../components/ErrorBoundary';
+import ErrorMessage from '../../components/ErrorMessage';
+import LoadingSpinner from '../../components/LoadingSpinner';
+
+import './Dashboard.css';
 
 const Dashboard = () => {
   const location = useLocation();
-  const jobListings = location.state?.jobListings || [];
+  const { setJobListings, setError, clearError } = useAppContext();
+  
+  // Initialize job listings from location state
+  const initialJobListings = location.state?.jobListings || [];
+  
+  // Custom hooks for state management
+  const fileUpload = useFileUpload();
+  const resumeAnalysis = useResumeAnalysis();
+  const jobSelection = useJobSelection(initialJobListings);
 
-  const [resumeText, setResumeText] = useState('');
-  const [pdfUrl, setPdfUrl] = useState(null);
-  const [wordFile, setWordFile] = useState(null);
-  const [analysisData, setAnalysisData] = useState([]);
-  const [selectedJob, setSelectedJob] = useState(null);
-  const [isResumeUploaded, setIsResumeUploaded] = useState(false);
-
-  const handleResumeUpdate = (newText) => {
-    setResumeText(newText);
-    setIsResumeUploaded(true);
-  };
-
-  const handleUploadResume = (file) => {
-    console.log(`Uploading file: ${file.name}`);
-    setPdfUrl(null);
-    setWordFile(null);
-    setResumeText('');
-    setIsResumeUploaded(false);
-
-    if (file.type === 'application/pdf') {
-      const fileUrl = URL.createObjectURL(file);
-      setPdfUrl(fileUrl);
-      setIsResumeUploaded(true);
-    } else if (
-      file.type ===
-      'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
-    ) {
-      setWordFile(file);
-      setIsResumeUploaded(true);
-    } else {
-      const reader = new FileReader();
-      reader.onload = (e) => {
-        setResumeText(e.target.result);
-        setPdfUrl(null);
-        setIsResumeUploaded(true);
-      };
-      reader.readAsText(file);
-    }
-  };
-
-  const onJobSelect = (job) => {
-    console.log(job);
-    setSelectedJob(job);
-  };
-
+  // Set job listings in global context
   useEffect(() => {
-    if (isResumeUploaded && selectedJob) {
-      console.log('Posting job:', selectedJob);
-      const formData = new FormData();
-      formData.append('onetsoc_code', selectedJob.onetsoc_code);
-
-      if (resumeText) {
-        formData.append('resumeText', resumeText);
-      } else if (pdfUrl) {
-        const file = new Blob([pdfUrl], { type: 'application/pdf' });
-        formData.append('resumeFile', file, 'resume.pdf');
-      } else if (wordFile) {
-        formData.append('resumeFile', wordFile);
-      }
-      console.log(formData);
-      fetch('http://localhost:3000/upload', {
-        method: 'POST',
-        body: formData,
-      })
-        .then((response) => response.json())
-        .then((data) => {
-          console.log('Upload result', data);
-          setAnalysisData(data.analysis);
-        })
-        .catch((error) => console.log('Error posting job and resume', error));
+    if (initialJobListings.length > 0) {
+      setJobListings(initialJobListings);
     }
-  }, [isResumeUploaded, selectedJob]);
+  }, [initialJobListings, setJobListings]);
+
+  // Auto-analyze when both resume and job are ready
+  useEffect(() => {
+    if (fileUpload.hasFile && jobSelection.hasSelectedJob && !resumeAnalysis.isAnalyzing) {
+      const resumeData = {
+        file: fileUpload.file,
+        resumeText: fileUpload.resumeText,
+        fileType: fileUpload.fileType,
+      };
+      
+      resumeAnalysis.analyzeResume(resumeData, jobSelection.selectedJob);
+    }
+  }, [
+    fileUpload.hasFile, 
+    fileUpload.file, 
+    fileUpload.resumeText, 
+    fileUpload.fileType,
+    jobSelection.hasSelectedJob, 
+    jobSelection.selectedJob,
+    resumeAnalysis.isAnalyzing
+  ]);
+
+  // Handle errors from various hooks
+  useEffect(() => {
+    const errors = [
+      fileUpload.uploadError,
+      resumeAnalysis.analysisError,
+      jobSelection.jobError
+    ].filter(Boolean);
+
+    if (errors.length > 0) {
+      setError(errors[0]); // Show the first error
+    } else {
+      clearError();
+    }
+  }, [
+    fileUpload.uploadError,
+    resumeAnalysis.analysisError,
+    jobSelection.jobError,
+    setError,
+    clearError
+  ]);
+
+  // Cleanup file URLs on unmount
+  useEffect(() => {
+    return () => {
+      fileUpload.cleanupFileUrl();
+    };
+  }, [fileUpload.cleanupFileUrl]);
+
+  const handleRetryAnalysis = () => {
+    if (fileUpload.hasFile && jobSelection.hasSelectedJob) {
+      const resumeData = {
+        file: fileUpload.file,
+        resumeText: fileUpload.resumeText,
+        fileType: fileUpload.fileType,
+      };
+      
+      resumeAnalysis.retryAnalysis(resumeData, jobSelection.selectedJob);
+    }
+  };
 
   const renderViewer = () => {
-    if (pdfUrl) {
-      return <PDFViewer pdfUrl={pdfUrl} />;
-    } else if (wordFile) {
-      return <DocxToHtml file={wordFile} />;
-    } else {
-      return <ResumeViewer resumeText={resumeText} />;
+    if (fileUpload.isUploading) {
+      return <LoadingSpinner message="Processing your resume..." />;
+    }
+
+    switch (fileUpload.fileType) {
+      case 'pdf':
+        return <PDFViewer pdfUrl={fileUpload.fileUrl} />;
+      case 'docx':
+        return <DocxToHtml file={fileUpload.file} />;
+      case 'text':
+      default:
+        return <ResumeViewer resumeText={fileUpload.resumeText} />;
     }
   };
 
   return (
-    <div className='dashboard'>
-      <Toolbar
-        onResumeUpdate={handleResumeUpdate}
-        onUploadResume={handleUploadResume}
-        onJobSelect={onJobSelect}
-        jobListings={jobListings}
-      />
-      <div className='dashboard-content'>
-        {renderViewer()}
-        <AnalysisPanel analysisData={analysisData} />
+    <ErrorBoundary>
+      <div className='dashboard'>
+        <Toolbar
+          onResumeUpdate={fileUpload.handleTextInput}
+          onUploadResume={fileUpload.handleFileUpload}
+          onJobSelect={jobSelection.selectJob}
+          jobListings={jobSelection.filteredJobListings}
+          selectedJob={jobSelection.selectedJob}
+          onSearchJobs={jobSelection.searchJobs}
+          searchTerm={jobSelection.searchTerm}
+          isUploading={fileUpload.isUploading}
+        />
+        
+        <div className='dashboard-content'>
+          <div className='dashboard-viewer'>
+            {renderViewer()}
+          </div>
+          
+          <div className='dashboard-analysis'>
+            {resumeAnalysis.isAnalyzing && (
+              <LoadingSpinner 
+                message="Analyzing your resume against the job requirements..." 
+                size="large"
+              />
+            )}
+            
+            {resumeAnalysis.analysisError && (
+              <ErrorMessage 
+                error={resumeAnalysis.analysisError}
+                onRetry={handleRetryAnalysis}
+                onDismiss={resumeAnalysis.clearAnalysis}
+              />
+            )}
+            
+            <AnalysisPanel 
+              analysisData={resumeAnalysis.analysisData}
+              metadata={resumeAnalysis.analysisMetadata}
+              isLoading={resumeAnalysis.isAnalyzing}
+            />
+          </div>
+        </div>
       </div>
-    </div>
+    </ErrorBoundary>
   );
 };
 
