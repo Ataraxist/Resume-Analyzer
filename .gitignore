@@ -1,46 +1,64 @@
-Server/.env
-database/db_29_2_mssql/01_content_model_reference.sql
-database/db_29_2_mssql/02_job_zone_reference.sql
-database/db_29_2_mssql/03_occupation_data.sql
-database/db_29_2_mssql/04_scales_reference.sql
-database/db_29_2_mssql/05_ete_categories.sql
-database/db_29_2_mssql/06_level_scale_anchors.sql
-database/db_29_2_mssql/07_occupation_level_metadata.sql
-database/db_29_2_mssql/08_survey_booklet_locations.sql
-database/db_29_2_mssql/09_task_categories.sql
-database/db_29_2_mssql/10_work_context_categories.sql
-database/db_29_2_mssql/11_abilities.sql
-database/db_29_2_mssql/12_education_training_experience.sql
-database/db_29_2_mssql/13_interests.sql
-database/db_29_2_mssql/14_job_zones.sql
-database/db_29_2_mssql/15_knowledge.sql
-database/db_29_2_mssql/16_skills.sql
-database/db_29_2_mssql/17_task_statements.sql
-database/db_29_2_mssql/18_task_ratings.sql
-database/db_29_2_mssql/19_work_activities.sql
-database/db_29_2_mssql/20_work_context.sql
-database/db_29_2_mssql/21_work_styles.sql
-database/db_29_2_mssql/22_work_values.sql
-database/db_29_2_mssql/23_iwa_reference.sql
-database/db_29_2_mssql/24_dwa_reference.sql
-database/db_29_2_mssql/25_tasks_to_dwas.sql
-database/db_29_2_mssql/26_emerging_tasks.sql
-database/db_29_2_mssql/27_related_occupations.sql
-database/db_29_2_mssql/28_unspsc_reference.sql
-database/db_29_2_mssql/29_alternate_titles.sql
-database/db_29_2_mssql/30_sample_of_reported_titles.sql
-database/db_29_2_mssql/31_technology_skills.sql
-database/db_29_2_mssql/32_tools_used.sql
-database/db_29_2_mssql/33_abilities_to_work_activities.sql
-database/db_29_2_mssql/34_abilities_to_work_context.sql
-database/db_29_2_mssql/35_skills_to_work_activities.sql
-database/db_29_2_mssql/36_skills_to_work_context.sql
-database/db_29_2_mssql/37_riasec_keywords.sql
-database/db_29_2_mssql/38_basic_interests_to_riasec.sql
-database/db_29_2_mssql/39_interests_illus_activities.sql
-database/db_29_2_mssql/40_interests_illus_occupations.sql
-Server/.env
-Server/.env
-Server/.env
-Server/.env
-Server/.env
+# Dependencies
+node_modules/
+*/node_modules/
+
+# Environment files
+.env
+.env.local
+.env.*.local
+*.env
+
+# Logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+server.log
+
+# Build output
+dist/
+build/
+*.dist
+.cache/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# Testing
+coverage/
+.nyc_output/
+
+# Temporary files
+tmp/
+temp/
+*.tmp
+
+# Legacy code
+legacy-v1/
+
+# Resume files (for privacy)
+*.docx
+*.pdf
+!public/**/*.pdf
+
+# Database files
+*.sqlite
+*.sqlite3
+*.db
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+.Python
+env/
+venv/
+.venv/
+
+# Uploads folder (if exists)
+uploads/

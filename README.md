@@ -1,212 +1,97 @@
 # Resume Analyzer
 
-A modern, full-stack application that analyzes resumes against job requirements using AI-powered insights.
+AI-powered resume analysis against O*NET job requirements.
 
-## 🚀 Features
+## What It Does
 
-- **Smart Resume Analysis**: Upload resumes in PDF, Word, or text format
-- **Job Matching**: Compare resumes against O*NET job data
-- **AI-Powered Insights**: Get detailed feedback on skills, experience, and job fit
-- **Real-time Processing**: Instant analysis with progress indicators
-- **Modern UI**: Responsive design with error handling and loading states
-- **Secure & Scalable**: Built with security best practices and rate limiting
+Upload a resume → Select a job → Get AI-powered feedback across O*NET job dimensions.
 
-## 🏗️ Architecture
+## O*NET-Centric MVP Implementation Plan
 
-### Backend (Node.js/Express)
-- **Services Layer**: Modular business logic separation
-- **Error Handling**: Comprehensive error management with custom middleware
-- **Validation**: Request sanitization and validation
-- **Security**: Helmet, CORS, rate limiting
-- **Configuration**: Environment-based config management
+### Core Architecture
+- **Backend**: Node.js/Express (simple, no TypeScript needed)
+- **Caching**: SQLite for O*NET data (simple, file-based)
+- **Frontend**: React with clean UI for results display
 
-### Frontend (React)
-- **Custom Hooks**: Reusable logic for file upload, job selection, and analysis
-- **Context API**: Global state management
-- **Error Boundaries**: Graceful error handling
-- **Modern Components**: Responsive, accessible UI components
+### Implementation Phases
 
-## 📦 Installation
+**Phase 1: O*NET Integration (Day 1-2)**
+- Set up O*NET API client with credentials
+- Fetch occupation list (~1000 jobs)
+- Implement parallel fetching for job details:
+  - Tasks, Technology Skills, Tools Used
+  - Work Activities, Knowledge, Skills
+  - Abilities, Education requirements
+- Cache everything in SQLite after fetch
 
-### Prerequisites
-- Node.js 18+ 
-- MongoDB
-- OpenAI API Key
+**Phase 2: Resume Processing & Structured Extraction (Day 2-3)**
+- File upload (PDF, DOCX, TXT)
+- Text extraction from documents
+- AI-powered parsing to structured format:
+  - Personal information (contact details)
+  - Work experiences (companies, roles, responsibilities, achievements)
+  - Skills (technical, soft skills, tools, languages)
+  - Education (degrees, institutions, dates, GPA)
+  - Projects (descriptions, technologies used)
+  - Certifications & awards
+- Store structured data mapped to O*NET dimensions:
+  - Experience → Tasks, Work Activities
+  - Skills → Skills, Technology Skills, Tools Used
+  - Education → Education Requirements, Job Zone
+  - Projects → Technology Skills, Tasks
 
-### Backend Setup
+**Phase 3: Dimension-by-Dimension Analysis Engine (Day 3-4)**
+- User selects specific O*NET occupation (e.g., Software Developer)
+- Fetch complete O*NET data for occupation (150+ data points)
+- Run focused AI comparisons per dimension:
+  - Compare resume.experience → onet.tasks (20+ tasks)
+  - Compare resume.skills → onet.skills (50+ skills)
+  - Compare resume.education → onet.education_requirements
+  - Compare resume.skills → onet.technology_skills (10-20 tools)
+  - Compare resume.experience → onet.work_activities (20+ activities)
+  - Compare resume.knowledge → onet.knowledge (30+ areas)
+  - Compare resume.abilities → onet.abilities (20+ abilities)
+- Generate specific feedback per dimension:
+  - Individual scores for each O*NET data point
+  - Specific gaps identified (e.g., "Missing: AWS, Docker, Kubernetes")
+  - Actionable recommendations per category
+  - Overall fit percentage
+- Return structured analysis with 1 score per O*NET dimension
 
-1. Navigate to the server directory:
-```bash
-cd Server
-```
+**Phase 4: Frontend (Day 4-5)**
+- O*NET job search/selection
+- Resume upload
+- Results display with:
+  - Score for each O*NET dimension
+  - Specific feedback per category
+  - Overall fit assessment
+  - Recommendations for improvement
 
-2. Install dependencies:
-```bash
-npm install
-```
+### What Makes This Valuable
+- Uses real O*NET job taxonomy (1000+ real jobs)
+- Provides structured feedback across 7-8 professional dimensions
+- Gives actionable insights based on actual job requirements
+- Creates standardized assessments that mirror government job data
 
-3. Create environment file:
-```bash
-cp .env.example .env
-```
+## Environment Variables
 
-4. Configure your `.env` file with:
 ```env
-OPENAI_API_KEY=your_openai_api_key_here
-MONGO_URI=mongodb://localhost:27017/resume-analyzer
-JWT_SECRET=your_jwt_secret_here
+OPENAI_API_KEY=your_key_here
+ONET_USERNAME=your_username
+ONET_PASSWORD=your_password
+PORT=3000
 ```
 
-5. Start the server:
-```bash
-npm start
-```
+## Quick Start
 
-### Frontend Setup
-
-1. Navigate to the client directory:
 ```bash
-cd Client
-```
-
-2. Install dependencies:
-```bash
+# Backend
+cd backend
 npm install
-```
+npm run dev
 
-3. Create environment file:
-```bash
-cp .env.example .env
-```
-
-4. Configure your `.env` file:
-```env
-VITE_API_BASE_URL=http://localhost:3000
-```
-
-5. Start the development server:
-```bash
+# Frontend
+cd frontend
+npm install
 npm run dev
 ```
-
-## 🔧 Configuration
-
-### Server Environment Variables
-
-| Variable | Description | Default |
-|----------|-------------|---------|
-| `PORT` | Server port | `3000` |
-| `NODE_ENV` | Environment | `development` |
-| `OPENAI_API_KEY` | OpenAI API key | Required |
-| `MONGO_URI` | MongoDB connection string | `mongodb://localhost:27017/resume-analyzer` |
-| `JWT_SECRET` | JWT signing secret | Required |
-| `MAX_FILE_SIZE` | Max upload size in bytes | `10485760` (10MB) |
-| `RATE_LIMIT_MAX` | Max requests per window | `100` |
-
-### Client Environment Variables
-
-| Variable | Description | Default |
-|----------|-------------|---------|
-| `VITE_API_BASE_URL` | Backend API URL | `http://localhost:3000` |
-| `VITE_NODE_ENV` | Environment | `development` |
-
-## 🔌 API Endpoints
-
-### Upload & Analysis
-- `POST /api/upload` - Upload resume and analyze against job
-- `POST /upload` - Legacy endpoint (backward compatibility)
-
-### Job Data
-- `GET /api/job/*` - O*NET job data endpoints
-- `GET /job/*` - Legacy endpoints
-
-### Health Check
-- `GET /health` - Server health status
-
-## 🧪 Development
-
-### Code Structure
-
-```
-Resume-Analyzer/
-├── Server/
-│   ├── config/           # Configuration management
-│   ├── controllers/      # Request handlers
-│   ├── middleware/       # Custom middleware
-│   ├── models/          # Database models
-│   ├── routes/          # API routes
-│   ├── services/        # Business logic
-│   └── utils/           # Utility functions
-├── Client/
-│   ├── src/
-│   │   ├── components/  # Reusable components
-│   │   ├── context/     # React contexts
-│   │   ├── hooks/       # Custom hooks
-│   │   └── Pages/       # Page components
-│   └── public/
-└── README.md
-```
-
-### Key Improvements Made
-
-1. **Server-Side Refactoring**:
-   - Extracted business logic into services
-   - Added comprehensive error handling
-   - Implemented request validation and sanitization
-   - Added security middleware (helmet, rate limiting)
-   - Created centralized configuration management
-
-2. **Client-Side Modernization**:
-   - Created custom hooks for state management
-   - Implemented Context API for global state
-   - Added error boundaries and loading states
-   - Improved component architecture
-   - Enhanced user experience with better feedback
-
-3. **Code Quality**:
-   - Separation of concerns
-   - Error handling at all levels
-   - Input validation and sanitization
-   - Responsive design patterns
-   - Accessibility improvements
-
-## 🚦 Usage
-
-1. **Start the Application**: Run both backend and frontend servers
-2. **Upload Resume**: Choose a PDF, Word document, or paste text
-3. **Select Job**: Pick from available job listings or search
-4. **Review Analysis**: Get detailed feedback on job fit
-5. **Improve Resume**: Use insights to enhance your resume
-
-## 🔒 Security Features
-
-- Request rate limiting
-- Input sanitization
-- File type validation
-- Size limits on uploads
-- CORS configuration
-- Error message sanitization
-- Secure headers (Helmet.js)
-
-## 🐛 Error Handling
-
-The application includes comprehensive error handling:
-- **Client-side**: Error boundaries, user-friendly messages, retry mechanisms
-- **Server-side**: Global error handler, structured error responses, logging
-- **Network**: Connection error handling, timeout management
-
-## 📝 Contributing
-
-1. Fork the repository
-2. Create a feature branch
-3. Make your changes following the existing patterns
-4. Add tests if applicable
-5. Submit a pull request
-
-## 📄 License
-
-This project is licensed under the MIT License.
-
-## 🤝 Support
-
-For support, please open an issue in the repository or contact the development team.

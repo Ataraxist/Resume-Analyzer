@@ -1,0 +1,31 @@
+{
+  "name": "resume-analyzer-backend",
+  "version": "1.0.0",
+  "description": "O*NET-powered resume analysis backend",
+  "main": "server.js",
+  "type": "module",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node --watch server.js",
+    "fetch-onet": "node src/scripts/fetchOnetData.js"
+  },
+  "keywords": [
+    "onet",
+    "resume",
+    "analysis",
+    "career"
+  ],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "axios": "^1.11.0",
+    "cors": "^2.8.5",
+    "dotenv": "^17.2.2",
+    "express": "^5.1.0",
+    "mammoth": "^1.10.0",
+    "multer": "^2.0.2",
+    "openai": "^5.19.1",
+    "pdf-parse-fork": "^1.2.0",
+    "sqlite3": "^5.1.7"
+  }
+}
