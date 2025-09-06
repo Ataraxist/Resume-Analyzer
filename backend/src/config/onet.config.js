@@ -24,7 +24,7 @@ const onetConfig = {
     },
     rateLimit: {
         maxConcurrent: parseInt(process.env.MAX_CONCURRENT_REQUESTS) || 10,
-        delayMs: parseInt(process.env.REQUEST_DELAY_MS) || 50
+        delayMs: parseInt(process.env.REQUEST_DELAY_MS) || 200 // O*NET recommends 200ms minimum
     }
     // Note: Occupation fetching now dynamically determines total count
 };

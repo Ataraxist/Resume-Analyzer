@@ -1,7 +1,12 @@
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { AuthProvider } from './contexts/AuthContext';
+import ProtectedRoute from './components/auth/ProtectedRoute';
 import Layout from './components/layout/Layout';
 import HomePage from './pages/HomePage';
+import LoginPage from './pages/LoginPage';
+import SignupPage from './pages/SignupPage';
+import JobSelectionPage from './pages/JobSelectionPage';
 import UploadPage from './pages/UploadPage';
 import AnalysisPage from './pages/AnalysisPage';
 import ResultsPage from './pages/ResultsPage';
@@ -21,14 +26,35 @@ function App() {
   return (
     <QueryClientProvider client={queryClient}>
       <Router>
-        <Layout>
+        <AuthProvider>
           <Routes>
-            <Route path="/" element={<HomePage />} />
-            <Route path="/upload" element={<UploadPage />} />
-            <Route path="/analysis" element={<AnalysisPage />} />
-            <Route path="/results/:analysisId" element={<ResultsPage />} />
+            {/* Public routes */}
+            <Route path="/login" element={<LoginPage />} />
+            <Route path="/signup" element={<SignupPage />} />
+            
+            {/* Mixed public/protected routes with Layout */}
+            <Route element={<Layout />}>
+              {/* Public routes - accessible to everyone */}
+              <Route path="/" element={<HomePage />} />
+              <Route path="/jobs" element={<JobSelectionPage />} />
+              <Route path="/upload" element={<UploadPage />} />
+              <Route path="/analysis" element={<AnalysisPage />} />
+              <Route path="/results/:analysisId" element={<ResultsPage />} />
+              
+              {/* Protected routes - require authentication */}
+              <Route path="/dashboard" element={
+                <ProtectedRoute>
+                  <HomePage />
+                </ProtectedRoute>
+              } />
+              <Route path="/history" element={
+                <ProtectedRoute>
+                  <HomePage />
+                </ProtectedRoute>
+              } />
+            </Route>
           </Routes>
-        </Layout>
+        </AuthProvider>
       </Router>
     </QueryClientProvider>
   );

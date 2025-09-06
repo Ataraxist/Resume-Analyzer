@@ -1,36 +1,81 @@
 import express from 'express';
 import analysisController from '../controllers/analysisController.js';
+import authMiddleware, { optionalAuthMiddleware } from '../middleware/authMiddleware.js';
+import { requireIdentity, trackGuestSession } from '../middleware/sessionMiddleware.js';
 
 const router = express.Router();
 
-// Main analysis endpoint - analyze resume against selected occupation
-router.post('/analyze', (req, res) => analysisController.analyzeResume(req, res));
+// Main analysis endpoint - supports both guests and authenticated users
+router.post('/analyze',
+    optionalAuthMiddleware,
+    trackGuestSession,
+    requireIdentity,
+    (req, res) => analysisController.analyzeResume(req, res)
+);
 
-// Compare specific dimension
-router.post('/compare-dimension', (req, res) => analysisController.compareDimension(req, res));
+// Compare specific dimension - supports both guests and authenticated users
+router.post('/compare-dimension',
+    optionalAuthMiddleware,
+    trackGuestSession,
+    requireIdentity,
+    (req, res) => analysisController.compareDimension(req, res)
+);
 
-// Get all analyses
-router.get('/search', (req, res) => analysisController.searchAnalyses(req, res));
+// Get all analyses - authenticated users only
+router.get('/search', 
+    authMiddleware,
+    (req, res) => analysisController.searchAnalyses(req, res)
+);
 
-// Get analysis statistics
-router.get('/statistics', (req, res) => analysisController.getAnalysisStatistics(req, res));
+// Get analysis statistics - authenticated users only
+router.get('/statistics',
+    authMiddleware,
+    (req, res) => analysisController.getAnalysisStatistics(req, res)
+);
 
-// Get specific analysis by ID
-router.get('/:id', (req, res) => analysisController.getAnalysis(req, res));
+// Get specific analysis by ID - supports both guests and authenticated users
+router.get('/:id',
+    optionalAuthMiddleware,
+    trackGuestSession,
+    requireIdentity,
+    (req, res) => analysisController.getAnalysis(req, res)
+);
 
-// Get recommendations for specific analysis
-router.get('/:id/recommendations', (req, res) => analysisController.getRecommendations(req, res));
+// Get recommendations for specific analysis - supports both guests and authenticated users
+router.get('/:id/recommendations',
+    optionalAuthMiddleware,
+    trackGuestSession,
+    requireIdentity,
+    (req, res) => analysisController.getRecommendations(req, res)
+);
 
-// Delete analysis
-router.delete('/:id', (req, res) => analysisController.deleteAnalysis(req, res));
+// Delete analysis - supports both guests and authenticated users
+router.delete('/:id',
+    optionalAuthMiddleware,
+    trackGuestSession,
+    requireIdentity,
+    (req, res) => analysisController.deleteAnalysis(req, res)
+);
 
-// Get all analyses for a specific resume
-router.get('/resume/:resumeId', (req, res) => analysisController.getResumeAnalyses(req, res));
+// Get all analyses for a specific resume - supports both guests and authenticated users
+router.get('/resume/:resumeId',
+    optionalAuthMiddleware,
+    trackGuestSession,
+    requireIdentity,
+    (req, res) => analysisController.getResumeAnalyses(req, res)
+);
 
-// Get top occupation matches for a resume
-router.get('/resume/:resumeId/top-matches', (req, res) => analysisController.getTopMatches(req, res));
+// Get top occupation matches for a resume - supports both guests and authenticated users
+router.get('/resume/:resumeId/top-matches',
+    optionalAuthMiddleware,
+    trackGuestSession,
+    requireIdentity,
+    (req, res) => analysisController.getTopMatches(req, res)
+);
 
-// Get all analyses for a specific occupation
-router.get('/occupation/:occupationCode', (req, res) => analysisController.getOccupationAnalyses(req, res));
+// Get all analyses for a specific occupation - public endpoint
+router.get('/occupation/:occupationCode', 
+    (req, res) => analysisController.getOccupationAnalyses(req, res)
+);
 
 export default router;

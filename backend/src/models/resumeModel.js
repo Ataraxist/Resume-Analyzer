@@ -1,16 +1,18 @@
 import database from '../db/database.js';
 
 class ResumeModel {
-    // Create a new resume entry
+    // Create a new resume entry (supports both users and guests)
     async createResume(resumeData) {
         const sql = `
             INSERT INTO resumes (
-                filename, file_type, file_size, raw_text, 
+                user_id, session_id, filename, file_type, file_size, raw_text, 
                 structured_data, processing_status, error_message
-            ) VALUES (?, ?, ?, ?, ?, ?, ?)
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
         `;
 
         const params = [
+            resumeData.userId || null,
+            resumeData.sessionId || null,
             resumeData.filename,
             resumeData.file_type,
             resumeData.file_size || 0,
@@ -54,6 +56,12 @@ class ResumeModel {
         let sql = 'SELECT id, filename, file_type, processing_status, created_at FROM resumes';
         const params = [];
         const conditions = [];
+
+        // Filter by user_id if provided
+        if (filters.userId) {
+            conditions.push('user_id = ?');
+            params.push(filters.userId);
+        }
 
         if (filters.status) {
             conditions.push('processing_status = ?');
@@ -236,6 +244,93 @@ class ResumeModel {
             return result.changes;
         } catch (error) {
             console.error('Error marking resumes as processing:', error);
+            throw error;
+        }
+    }
+
+    // Check if user owns the resume
+    async isResumeOwnedByUser(resumeId, userId) {
+        const sql = 'SELECT user_id FROM resumes WHERE id = ?';
+        
+        try {
+            const result = await database.get(sql, [resumeId]);
+            return result && result.user_id === userId;
+        } catch (error) {
+            console.error('Error checking resume ownership:', error);
+            return false;
+        }
+    }
+
+    // Check if session owns the resume (for guest users)
+    async isResumeOwnedBySession(resumeId, sessionId) {
+        const sql = 'SELECT session_id FROM resumes WHERE id = ?';
+        
+        try {
+            const result = await database.get(sql, [resumeId]);
+            return result && result.session_id === sessionId;
+        } catch (error) {
+            console.error('Error checking resume session ownership:', error);
+            return false;
+        }
+    }
+
+    // Claim guest resumes when user signs up
+    async claimGuestResumes(sessionId, userId) {
+        const sql = `
+            UPDATE resumes 
+            SET user_id = ?, session_id = NULL 
+            WHERE session_id = ? AND user_id IS NULL
+        `;
+        
+        try {
+            const result = await database.run(sql, [userId, sessionId]);
+            return result.changes;
+        } catch (error) {
+            console.error('Error claiming guest resumes:', error);
+            throw error;
+        }
+    }
+
+    // Get resumes by user
+    async getResumesByUser(userId, limit = 20) {
+        const sql = `
+            SELECT id, filename, file_type, processing_status, created_at
+            FROM resumes 
+            WHERE user_id = ?
+            ORDER BY created_at DESC
+            LIMIT ?
+        `;
+
+        try {
+            // Ensure database is initialized
+            if (!database.db) {
+                await database.initialize();
+            }
+            return await database.query(sql, [userId, limit]);
+        } catch (error) {
+            console.error('Error fetching user resumes:', error);
+            throw error;
+        }
+    }
+
+    // Get resumes by session (for guest users)
+    async getResumesBySession(sessionId, limit = 20) {
+        const sql = `
+            SELECT id, filename, file_type, processing_status, created_at
+            FROM resumes 
+            WHERE session_id = ? AND user_id IS NULL
+            ORDER BY created_at DESC
+            LIMIT ?
+        `;
+
+        try {
+            // Ensure database is initialized
+            if (!database.db) {
+                await database.initialize();
+            }
+            return await database.query(sql, [sessionId, limit]);
+        } catch (error) {
+            console.error('Error fetching session resumes:', error);
             throw error;
         }
     }

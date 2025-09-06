@@ -47,10 +47,10 @@ function HomePage() {
           insights to advance your career.
         </p>
         <Link
-          to="/upload"
+          to="/jobs"
           className="inline-flex items-center px-6 py-3 text-lg font-medium text-white bg-primary-600 rounded-lg hover:bg-primary-700 transition-colors"
         >
-          Get Started
+          Browse Jobs
         </Link>
       </div>
       
@@ -89,8 +89,8 @@ function HomePage() {
             <div className="w-16 h-16 bg-primary-600 text-white rounded-full flex items-center justify-center text-2xl font-bold mx-auto mb-4">
               1
             </div>
-            <h3 className="text-lg font-semibold mb-2">Upload Resume</h3>
-            <p className="text-gray-600">PDF, DOCX, or TXT format</p>
+            <h3 className="text-lg font-semibold mb-2">Select Target Job</h3>
+            <p className="text-gray-600">Browse 1000+ O*NET occupations</p>
           </div>
           
           <div className="hidden md:block flex-1 h-1 bg-gray-300 mx-4" />
@@ -99,8 +99,8 @@ function HomePage() {
             <div className="w-16 h-16 bg-primary-600 text-white rounded-full flex items-center justify-center text-2xl font-bold mx-auto mb-4">
               2
             </div>
-            <h3 className="text-lg font-semibold mb-2">Select Occupation</h3>
-            <p className="text-gray-600">Choose from 1000+ O*NET jobs</p>
+            <h3 className="text-lg font-semibold mb-2">Upload Resume</h3>
+            <p className="text-gray-600">PDF, DOCX, or TXT format</p>
           </div>
           
           <div className="hidden md:block flex-1 h-1 bg-gray-300 mx-4" />
@@ -124,10 +124,10 @@ function HomePage() {
           Get comprehensive insights in less than 60 seconds.
         </p>
         <Link
-          to="/upload"
+          to="/jobs"
           className="inline-flex items-center px-8 py-4 text-lg font-medium text-white bg-primary-600 rounded-lg hover:bg-primary-700 transition-colors"
         >
-          Start Analysis Now
+          Explore Jobs Now
         </Link>
       </div>
     </div>

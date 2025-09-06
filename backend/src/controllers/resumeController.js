@@ -3,6 +3,15 @@ import fileExtractorService from '../services/fileExtractorService.js';
 import resumeParserService from '../services/resumeParserService.js';
 
 class ResumeController {
+    // Helper to check resume ownership for both users and guests
+    async checkResumeOwnership(resumeId, identity) {
+        if (identity.userId) {
+            return await resumeModel.isResumeOwnedByUser(resumeId, identity.userId);
+        } else if (identity.sessionId) {
+            return await resumeModel.isResumeOwnedBySession(resumeId, identity.sessionId);
+        }
+        return false;
+    }
     // Upload and process resume
     async uploadResume(req, res) {
         try {
@@ -20,8 +29,10 @@ class ResumeController {
                 });
             }
 
-            // Step 1: Create initial resume entry
+            // Step 1: Create initial resume entry with user_id or session_id
             const resumeId = await resumeModel.createResume({
+                userId: req.identity?.userId || null,
+                sessionId: req.identity?.sessionId || null,
                 filename: originalname,
                 file_type: mimetype,
                 file_size: size,
@@ -78,8 +89,10 @@ class ResumeController {
                 return res.status(400).json({ error: 'No text provided' });
             }
 
-            // Create resume entry
+            // Create resume entry with user_id or session_id
             const resumeId = await resumeModel.createResume({
+                userId: req.identity?.userId || null,
+                sessionId: req.identity?.sessionId || null,
                 filename: 'text-input.txt',
                 file_type: 'text/plain',
                 file_size: text.length,
@@ -115,6 +128,12 @@ class ResumeController {
                 return res.status(404).json({ error: 'Resume not found' });
             }
 
+            // Check ownership (works for both users and guests)
+            const isOwner = await this.checkResumeOwnership(id, req.identity);
+            if (!isOwner) {
+                return res.status(403).json({ error: 'Access denied' });
+            }
+
             res.json(resume);
 
         } catch (error) {
@@ -127,6 +146,13 @@ class ResumeController {
     async getStructuredData(req, res) {
         try {
             const { id } = req.params;
+            
+            // Check ownership (works for both users and guests)
+            const isOwner = await this.checkResumeOwnership(id, req.identity);
+            if (!isOwner) {
+                return res.status(403).json({ error: 'Access denied' });
+            }
+            
             const structuredData = await resumeModel.getStructuredData(id);
 
             if (!structuredData) {
@@ -141,12 +167,40 @@ class ResumeController {
         }
     }
 
+    // Update structured data
+    async updateStructuredData(req, res) {
+        try {
+            const { id } = req.params;
+            const updatedData = req.body;
+            
+            // Check ownership (works for both users and guests)
+            const isOwner = await this.checkResumeOwnership(id, req.identity);
+            if (!isOwner) {
+                return res.status(403).json({ error: 'Access denied' });
+            }
+            
+            // Update the structured data
+            await resumeModel.updateStructuredData(id, updatedData);
+
+            res.json({ 
+                success: true, 
+                message: 'Structured data updated successfully' 
+            });
+
+        } catch (error) {
+            console.error('Error updating structured data:', error);
+            res.status(500).json({ error: 'Failed to update structured data' });
+        }
+    }
+
     // Get all resumes
     async getAllResumes(req, res) {
         try {
             const { status, limit = 50, offset = 0 } = req.query;
             
+            // This endpoint is for authenticated users only (remains unchanged)
             const filters = {
+                userId: req.user.userId, // Filter by current user
                 status,
                 limit: parseInt(limit),
                 offset: parseInt(offset)
@@ -198,6 +252,13 @@ class ResumeController {
     async deleteResume(req, res) {
         try {
             const { id } = req.params;
+            
+            // Check ownership (works for both users and guests)
+            const isOwner = await this.checkResumeOwnership(id, req.identity);
+            if (!isOwner) {
+                return res.status(403).json({ error: 'Access denied' });
+            }
+            
             const deleted = await resumeModel.deleteResume(id);
 
             if (!deleted) {
@@ -216,6 +277,13 @@ class ResumeController {
     async getResumeStatus(req, res) {
         try {
             const { id } = req.params;
+            
+            // Check ownership (works for both users and guests)
+            const isOwner = await this.checkResumeOwnership(id, req.identity);
+            if (!isOwner) {
+                return res.status(403).json({ error: 'Access denied' });
+            }
+            
             const resume = await resumeModel.getResumeById(id);
 
             if (!resume) {
@@ -258,6 +326,36 @@ class ResumeController {
         } catch (error) {
             console.error('Error extracting key elements:', error);
             res.status(500).json({ error: 'Failed to extract key elements' });
+        }
+    }
+
+    // Get resumes for current user or session
+    async getMyResumes(req, res) {
+        try {
+            const { limit = 10 } = req.query;
+            let resumes = [];
+
+            // Check if user is authenticated or is a guest
+            if (req.identity.userId) {
+                // Authenticated user - get their resumes
+                resumes = await resumeModel.getResumesByUser(req.identity.userId, parseInt(limit));
+            } else if (req.identity.sessionId) {
+                // Guest user - get session resumes
+                resumes = await resumeModel.getResumesBySession(req.identity.sessionId, parseInt(limit));
+            }
+
+            res.json({
+                success: true,
+                data: resumes,
+                count: resumes.length
+            });
+
+        } catch (error) {
+            console.error('Error fetching my resumes:', error);
+            res.status(500).json({ 
+                success: false,
+                error: 'Failed to fetch your resumes' 
+            });
         }
     }
 }

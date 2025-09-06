@@ -302,10 +302,10 @@ class Database {
         
         return this.run(sql, [
             occupationCode,
-            jobZone.job_zone,
+            jobZone.code,
             jobZone.education,
-            jobZone.experience,
-            jobZone.training
+            jobZone.related_experience,
+            jobZone.job_training
         ]);
     }
 
@@ -404,17 +404,32 @@ class Database {
         
         // Fetch all related data
         const [tasks, technology_skills, tools_used, work_activities, 
-               knowledge, skills, abilities, education, job_zone] = await Promise.all([
+               knowledge, skills, abilities, education, job_zone, cacheMetadata] = await Promise.all([
             this.query('SELECT * FROM tasks WHERE occupation_code = ?', [code]),
-            this.query('SELECT * FROM technology_skills WHERE occupation_code = ?', [code]),
+            this.query('SELECT * FROM technology_skills WHERE occupation_code = ? ORDER BY hot_technology DESC, skill_name ASC', [code]),
             this.query('SELECT * FROM tools_used WHERE occupation_code = ?', [code]),
-            this.query('SELECT * FROM work_activities WHERE occupation_code = ? ORDER BY importance_score DESC', [code]),
-            this.query('SELECT * FROM knowledge WHERE occupation_code = ? ORDER BY importance_score DESC', [code]),
-            this.query('SELECT * FROM skills WHERE occupation_code = ? ORDER BY importance_score DESC', [code]),
-            this.query('SELECT * FROM abilities WHERE occupation_code = ? ORDER BY importance_score DESC', [code]),
+            this.query('SELECT * FROM work_activities WHERE occupation_code = ? AND importance_score > 25 ORDER BY importance_score DESC', [code]),
+            this.query('SELECT * FROM knowledge WHERE occupation_code = ? AND importance_score > 25 ORDER BY importance_score DESC', [code]),
+            this.query('SELECT * FROM skills WHERE occupation_code = ? AND importance_score > 25 ORDER BY importance_score DESC', [code]),
+            this.query('SELECT * FROM abilities WHERE occupation_code = ? AND importance_score > 25 ORDER BY importance_score DESC', [code]),
             this.query('SELECT * FROM education WHERE occupation_code = ? ORDER BY percentage DESC', [code]),
-            this.get('SELECT * FROM job_zones WHERE occupation_code = ?', [code])
+            this.get('SELECT * FROM job_zones WHERE occupation_code = ?', [code]),
+            this.get('SELECT * FROM fetch_metadata WHERE occupation_code = ?', [code])
         ]);
+        
+        // Check which dimensions are missing
+        const missingDimensions = [];
+        if (tasks.length === 0) missingDimensions.push('tasks');
+        if (technology_skills.length === 0 && tools_used.length === 0) missingDimensions.push('technology');
+        if (skills.length === 0) missingDimensions.push('skills');
+        if (knowledge.length === 0) missingDimensions.push('knowledge');
+        if (abilities.length === 0) missingDimensions.push('abilities');
+        if (education.length === 0) missingDimensions.push('education');
+        if (!job_zone || !job_zone.job_zone) missingDimensions.push('job_zone');
+        
+        // Check if data is stale (older than 30 days)
+        const isStale = cacheMetadata?.last_updated && 
+            (Date.now() - new Date(cacheMetadata.last_updated).getTime() > 30 * 24 * 60 * 60 * 1000);
         
         // Check if we have detailed data
         const hasData = tasks.length > 0 || skills.length > 0 || work_activities.length > 0;
@@ -432,7 +447,10 @@ class Database {
             abilities,
             education,
             jobZone: job_zone,
-            hasDetailedData: hasData
+            hasDetailedData: hasData,
+            missingDimensions,
+            isStale,
+            lastUpdated: cacheMetadata?.last_updated
         };
     }
 

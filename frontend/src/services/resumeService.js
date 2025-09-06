@@ -6,11 +6,8 @@ class ResumeService {
     const formData = new FormData();
     formData.append('resume', file);
     
-    const response = await api.post('/resume/upload', formData, {
-      headers: {
-        'Content-Type': 'multipart/form-data',
-      },
-    });
+    // Don't set Content-Type header - axios will set it automatically with the correct boundary
+    const response = await api.post('/resume/upload', formData);
     
     return response.data;
   }
@@ -24,6 +21,12 @@ class ResumeService {
   // Get all resumes
   async getAllResumes(params = {}) {
     const response = await api.get('/resume', { params });
+    return response.data;
+  }
+  
+  // Get resumes for current user or session
+  async getMyResumes(limit = 10) {
+    const response = await api.get('/resume/my-resumes', { params: { limit } });
     return response.data;
   }
   
@@ -48,6 +51,12 @@ class ResumeService {
   // Get structured data
   async getStructuredData(id) {
     const response = await api.get(`/resume/${id}/structured`);
+    return response.data;
+  }
+  
+  // Update structured data
+  async updateStructuredData(id, data) {
+    const response = await api.put(`/resume/${id}/structured`, data);
     return response.data;
   }
   

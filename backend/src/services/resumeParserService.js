@@ -115,7 +115,7 @@ PARSING RULES:
 
         try {
             const response = await this.openai.chat.completions.create({
-                model: 'gpt-4-turbo-preview',
+                model: 'gpt-4o-mini',
                 messages: [
                     { role: 'system', content: systemPrompt },
                     { role: 'user', content: `Parse this resume:\n\n${resumeText}` }

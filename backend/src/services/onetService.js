@@ -192,8 +192,11 @@ class OnetService {
             } else if (response.data.occupation) {
                 // For occupations list endpoint
                 allData = allData.concat(response.data.occupation);
+            } else if (response.data.response) {
+                // Education and some other endpoints return 'response' array
+                return response.data.response;
             } else if (response.data.education?.most_common) {
-                return response.data.education.most_common; // Education is not paginated
+                return response.data.education.most_common; // Legacy format if it exists
             } else if (response.data.job_zone) {
                 return response.data.job_zone; // Job zone is not paginated
             }
@@ -368,7 +371,7 @@ class OnetService {
     async fetchJobZone(code) {
         try {
             const response = await this.axiosInstance.get(onetConfig.endpoints.jobZone(code));
-            const jobZone = response.data.job_zone || {};
+            const jobZone = response.data || {};
             await database.saveJobZone(code, jobZone);
             return jobZone;
         } catch (error) {

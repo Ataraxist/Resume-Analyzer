@@ -1,5 +1,5 @@
 class RateLimiter {
-    constructor(maxConcurrent = 10, delayMs = 50) {
+    constructor(maxConcurrent = 10, delayMs = 200) { // O*NET recommends 200ms minimum delay
         this.maxConcurrent = maxConcurrent;
         this.delayMs = delayMs;
         this.activeRequests = 0;

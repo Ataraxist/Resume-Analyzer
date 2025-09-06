@@ -1,8 +1,12 @@
 import express from 'express';
 import cors from 'cors';
+import cookieParser from 'cookie-parser';
+import session from 'express-session';
+import crypto from 'crypto';
 import dotenv from 'dotenv';
 import database from './src/db/database.js';
 import onetService from './src/services/onetService.js';
+import authRoutes from './src/routes/authRoutes.js';
 import resumeRoutes from './src/routes/resumeRoutes.js';
 import analysisRoutes from './src/routes/analysisRoutes.js';
 
@@ -11,11 +15,32 @@ dotenv.config();
 const app = express();
 const PORT = process.env.PORT || 3000;
 
+// Session configuration
+const sessionConfig = {
+    secret: process.env.SESSION_SECRET || crypto.randomBytes(32).toString('hex'),
+    resave: false,
+    saveUninitialized: true, // Important: create session for guests
+    cookie: {
+        secure: process.env.NODE_ENV === 'production', // HTTPS only in production
+        httpOnly: true,
+        maxAge: 48 * 60 * 60 * 1000, // 48 hours for guest sessions
+        sameSite: 'lax'
+    },
+    name: 'resume.sid' // Custom session cookie name
+};
+
 // Middleware
 app.use(cors({
-    origin: process.env.CORS_ORIGIN || 'http://localhost:5173'
+    origin: process.env.CORS_ORIGIN || 'http://localhost:5173',
+    credentials: true, // Allow cookies to be sent
+    methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization'],
+    preflightContinue: false,
+    optionsSuccessStatus: 204
 }));
 app.use(express.json());
+app.use(cookieParser());
+app.use(session(sessionConfig));
 
 // Request logging middleware
 app.use((req, res, next) => {
@@ -41,6 +66,9 @@ async function initializeServices() {
 
 // === API Routes ===
 
+// Authentication routes
+app.use('/api/auth', authRoutes);
+
 // Resume routes (Phase 2)
 app.use('/api/resume', resumeRoutes);
 
@@ -61,15 +89,41 @@ app.get('/api/onet/occupations', async (req, res) => {
     try {
         const { search, limit = 100, offset = 0 } = req.query;
         
-        let query = 'SELECT code, title, description, bright_outlook FROM occupations';
+        let query = 'SELECT code, title, description, bright_outlook, sample_titles, rapid_growth, numerous_openings, updated_year FROM occupations';
         const params = [];
         
         if (search) {
-            query += ' WHERE title LIKE ? OR description LIKE ?';
-            params.push(`%${search}%`, `%${search}%`);
+            // Split search terms for flexible matching
+            const searchTerms = search.trim().split(/\s+/);
+            const conditions = [];
+            
+            // Add conditions for each search term
+            searchTerms.forEach(term => {
+                conditions.push('(title LIKE ? OR description LIKE ? OR code LIKE ? OR sample_titles LIKE ?)');
+                params.push(`%${term}%`, `%${term}%`, `${term}%`, `%${term}%`);
+            });
+            
+            // Also add a condition for the full search string
+            conditions.push('(title LIKE ? OR description LIKE ? OR code LIKE ? OR sample_titles LIKE ?)');
+            params.push(`%${search}%`, `%${search}%`, `${search}%`, `%${search}%`);
+            
+            query += ' WHERE ' + conditions.join(' OR ');
         }
         
-        query += ' ORDER BY title LIMIT ? OFFSET ?';
+        query += ' ORDER BY ' +
+                 'CASE ' +
+                 'WHEN code LIKE ? THEN 1 ' +  // Exact code match first
+                 'WHEN title LIKE ? THEN 2 ' + // Exact title match second
+                 'WHEN title LIKE ? THEN 3 ' + // Title starts with search
+                 'ELSE 4 END, ' +
+                 'title LIMIT ? OFFSET ?';
+        
+        // Add ordering parameters
+        if (search) {
+            params.push(`${search}%`, search, `${search}%`);
+        } else {
+            params.push('', '', '');
+        }
         params.push(parseInt(limit), parseInt(offset));
         
         const occupations = await database.query(query, params);
@@ -79,8 +133,18 @@ app.get('/api/onet/occupations', async (req, res) => {
         const countParams = [];
         
         if (search) {
-            countQuery += ' WHERE title LIKE ? OR description LIKE ?';
-            countParams.push(`%${search}%`, `%${search}%`);
+            const searchTerms = search.trim().split(/\s+/);
+            const conditions = [];
+            
+            searchTerms.forEach(term => {
+                conditions.push('(title LIKE ? OR description LIKE ? OR code LIKE ? OR sample_titles LIKE ?)');
+                countParams.push(`%${term}%`, `%${term}%`, `${term}%`, `%${term}%`);
+            });
+            
+            conditions.push('(title LIKE ? OR description LIKE ? OR code LIKE ? OR sample_titles LIKE ?)');
+            countParams.push(`%${search}%`, `%${search}%`, `${search}%`, `%${search}%`);
+            
+            countQuery += ' WHERE ' + conditions.join(' OR ');
         }
         
         const countResult = await database.get(countQuery, countParams);
@@ -100,6 +164,50 @@ app.get('/api/onet/occupations', async (req, res) => {
     }
 });
 
+// Force refresh occupation data
+app.post('/api/onet/occupations/:code/refresh', async (req, res) => {
+    try {
+        const { code } = req.params;
+        console.log(`Force refresh requested for occupation ${code}`);
+        
+        // Check if occupation exists
+        const occupation = await database.get('SELECT * FROM occupations WHERE code = ?', [code]);
+        if (!occupation) {
+            return res.status(404).json({ error: 'Occupation not found' });
+        }
+        
+        try {
+            // Force fetch from O*NET API
+            await onetService.fetchOccupationDetails(code);
+            
+            // Update the last_updated timestamp
+            await database.run(`
+                INSERT OR REPLACE INTO fetch_metadata 
+                (occupation_code, fetch_status, fetch_completed_at, last_updated, expires_at)
+                VALUES (?, 'completed', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, datetime('now', '+30 days'))
+            `, [code]);
+            
+            // Get the refreshed data
+            const details = await database.getOccupationDetails(code);
+            console.log(`Successfully refreshed data for ${code}`);
+            
+            res.json({
+                message: 'Data refreshed successfully',
+                details
+            });
+        } catch (fetchError) {
+            console.error(`Failed to refresh data for ${code}:`, fetchError);
+            return res.status(500).json({ 
+                error: 'Failed to refresh data from O*NET',
+                message: fetchError.message 
+            });
+        }
+    } catch (error) {
+        console.error('Error refreshing occupation data:', error);
+        res.status(500).json({ error: 'Internal server error' });
+    }
+});
+
 // Get specific occupation details (with on-demand fetching)
 app.get('/api/onet/occupations/:code', async (req, res) => {
     try {
@@ -112,9 +220,10 @@ app.get('/api/onet/occupations/:code', async (req, res) => {
             return res.status(404).json({ error: 'Occupation not found' });
         }
         
-        // If we don't have detailed data, fetch it from O*NET
-        if (!details.hasDetailedData) {
-            console.log(`No detailed data for ${code}, fetching from O*NET...`);
+        // Check for missing dimensions or stale data
+        if (details.missingDimensions.length > 0) {
+            console.log(`Missing dimensions for ${code}: ${details.missingDimensions.join(', ')}`);
+            console.log(`Fetching missing data from O*NET...`);
             
             try {
                 // Fetch detailed data from O*NET API
@@ -122,15 +231,20 @@ app.get('/api/onet/occupations/:code', async (req, res) => {
                 
                 // Now get the complete data from database
                 details = await database.getOccupationDetails(code);
-                console.log(`Successfully fetched and cached detailed data for ${code}`);
+                console.log(`Successfully fetched and cached missing data for ${code}`);
             } catch (fetchError) {
-                console.error(`Failed to fetch detailed data for ${code}:`, fetchError);
-                // Return what we have (basic data) with a warning
+                console.error(`Failed to fetch missing data for ${code}:`, fetchError);
+                // Return what we have with a warning about missing dimensions
                 return res.json({
                     ...details,
-                    warning: 'Detailed O*NET data could not be fetched. Using basic information only.'
+                    warning: `Some data could not be fetched: ${details.missingDimensions.join(', ')}`
                 });
             }
+        } else if (details.isStale) {
+            // Data is complete but stale - could trigger background refresh here
+            console.log(`Data for ${code} is stale (last updated: ${details.lastUpdated})`);
+            // For now, we'll serve stale data but log it
+            // In production, you might want to trigger a background refresh here
         }
         
         res.json(details);
