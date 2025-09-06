@@ -18,6 +18,12 @@ class ResumeService {
     return response.data;
   }
   
+  // Import resume from Google Docs
+  async importFromGoogleDoc(url) {
+    const response = await api.post('/resume/import-google-doc', { url });
+    return response.data;
+  }
+  
   // Get all resumes
   async getAllResumes(params = {}) {
     const response = await api.get('/resume', { params });
@@ -72,22 +78,60 @@ class ResumeService {
     return response.data;
   }
   
-  // Poll for processing status
-  async pollStatus(id, maxAttempts = 30, interval = 2000) {
-    let attempts = 0;
+  // Stream resume parsing with SSE
+  streamParsing(id, onFieldUpdate, onComplete, onError) {
+    const baseURL = api.defaults.baseURL || '';
+    const token = localStorage.getItem('token');
     
-    while (attempts < maxAttempts) {
-      const status = await this.getStatus(id);
-      
-      if (status.status === 'completed' || status.status === 'failed') {
-        return status;
+    // Create EventSource with auth token if available
+    const url = `${baseURL}/resume/${id}/stream`;
+    const eventSource = new EventSource(url, {
+      withCredentials: true,
+      headers: token ? { 'Authorization': `Bearer ${token}` } : {}
+    });
+    
+    // Handle different event types
+    eventSource.addEventListener('connected', (event) => {
+      console.log('SSE connected:', JSON.parse(event.data));
+    });
+    
+    eventSource.addEventListener('field_update', (event) => {
+      const { field, value } = JSON.parse(event.data);
+      if (onFieldUpdate) {
+        onFieldUpdate(field, value);
       }
-      
-      await new Promise(resolve => setTimeout(resolve, interval));
-      attempts++;
-    }
+    });
     
-    throw new Error('Processing timeout');
+    eventSource.addEventListener('completed', (event) => {
+      const structuredData = JSON.parse(event.data);
+      if (onComplete) {
+        onComplete(structuredData);
+      }
+      eventSource.close();
+    });
+    
+    eventSource.addEventListener('error', (event) => {
+      if (event.data) {
+        const errorData = JSON.parse(event.data);
+        if (onError) {
+          onError(errorData.error);
+        }
+      }
+      eventSource.close();
+    });
+    
+    eventSource.onerror = (error) => {
+      console.error('SSE connection error:', error);
+      if (onError) {
+        onError('Connection lost. Please try again.');
+      }
+      eventSource.close();
+    };
+    
+    // Return cleanup function
+    return () => {
+      eventSource.close();
+    };
   }
 }
 

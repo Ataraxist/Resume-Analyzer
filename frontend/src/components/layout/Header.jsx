@@ -1,7 +1,8 @@
 import { Link, useLocation } from 'react-router-dom';
 import { useState } from 'react';
-import { FileText, Upload, BarChart3, Home, User, LogOut, ChevronDown, Briefcase } from 'lucide-react';
+import { FileText, User, LogOut, ChevronDown, Briefcase } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
+import CreditBadge from '../credits/CreditBadge';
 
 function Header() {
   const location = useLocation();
@@ -23,59 +24,28 @@ function Header() {
             <span className="text-xl font-bold text-gray-900">Resume Analyzer</span>
           </Link>
           
-          <nav className="flex space-x-8">
-            <Link
-              to="/"
-              className={`flex items-center space-x-1 px-3 py-2 rounded-md text-sm font-medium transition-colors ${
-                isActive('/') 
-                  ? 'text-primary-600 bg-primary-50' 
-                  : 'text-gray-600 hover:text-primary-600'
-              }`}
-            >
-              <Home className="h-4 w-4" />
-              <span>Home</span>
-            </Link>
-            
+          <nav className="flex">
             <Link
               to="/jobs"
-              className={`flex items-center space-x-1 px-3 py-2 rounded-md text-sm font-medium transition-colors ${
+              className={`flex items-center space-x-1 px-4 py-2 rounded-md text-sm font-medium transition-colors ${
                 isActive('/jobs') 
-                  ? 'text-primary-600 bg-primary-50' 
-                  : 'text-gray-600 hover:text-primary-600'
+                  ? 'text-white bg-primary-600' 
+                  : 'text-gray-700 bg-gray-100 hover:bg-gray-200'
               }`}
             >
               <Briefcase className="h-4 w-4" />
-              <span>Browse Jobs</span>
-            </Link>
-            
-            <Link
-              to="/upload"
-              className={`flex items-center space-x-1 px-3 py-2 rounded-md text-sm font-medium transition-colors ${
-                isActive('/upload') 
-                  ? 'text-primary-600 bg-primary-50' 
-                  : 'text-gray-600 hover:text-primary-600'
-              }`}
-            >
-              <Upload className="h-4 w-4" />
-              <span>Upload Resume</span>
-            </Link>
-            
-            <Link
-              to="/analysis"
-              className={`flex items-center space-x-1 px-3 py-2 rounded-md text-sm font-medium transition-colors ${
-                isActive('/analysis') 
-                  ? 'text-primary-600 bg-primary-50' 
-                  : 'text-gray-600 hover:text-primary-600'
-              }`}
-            >
-              <BarChart3 className="h-4 w-4" />
-              <span>Analysis</span>
+              <span>Get Started</span>
             </Link>
           </nav>
           
-          {/* User Menu / Auth Buttons */}
-          {isAuthenticated ? (
-            <div className="relative">
+          {/* Credits and User Menu */}
+          <div className="flex items-center space-x-4">
+            {/* Credit Badge */}
+            <CreditBadge />
+            
+            {/* User Menu / Auth Buttons */}
+            {isAuthenticated ? (
+              <div className="relative">
               <button
                 onClick={() => setShowUserMenu(!showUserMenu)}
                 className="flex items-center space-x-2 px-3 py-2 rounded-md text-sm font-medium text-gray-600 hover:text-primary-600 hover:bg-gray-50 transition-colors"
@@ -125,23 +95,24 @@ function Header() {
                   </button>
                 </div>
               )}
-            </div>
-          ) : (
-            <div className="flex items-center space-x-3">
-              <Link
-                to="/login"
-                className="px-4 py-2 text-sm font-medium text-gray-700 hover:text-primary-600 transition-colors"
-              >
-                Sign In
-              </Link>
-              <Link
-                to="/signup"
-                className="px-4 py-2 text-sm font-medium text-white bg-primary-600 rounded-md hover:bg-primary-700 transition-colors"
-              >
-                Sign Up
-              </Link>
-            </div>
-          )}
+              </div>
+            ) : (
+              <div className="flex items-center space-x-3">
+                <Link
+                  to="/login"
+                  className="px-4 py-2 text-sm font-medium text-gray-700 hover:text-primary-600 transition-colors"
+                >
+                  Sign In
+                </Link>
+                <Link
+                  to="/signup"
+                  className="px-4 py-2 text-sm font-medium text-white bg-primary-600 rounded-md hover:bg-primary-700 transition-colors"
+                >
+                  Sign Up
+                </Link>
+              </div>
+            )}
+          </div>
         </div>
       </div>
     </header>

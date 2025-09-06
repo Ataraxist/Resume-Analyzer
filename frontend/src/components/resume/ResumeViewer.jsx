@@ -59,6 +59,14 @@ function ResumeViewer({ data: initialData, resumeId, editable = true }) {
     setSaveTimeout(timeout);
   }, [data, saveTimeout, saveData]);
 
+  // Skeleton loader component for sections being loaded
+  const SectionSkeleton = () => (
+    <div className="animate-pulse">
+      <div className="h-4 bg-gray-200 rounded w-3/4 mb-2"></div>
+      <div className="h-4 bg-gray-200 rounded w-1/2"></div>
+    </div>
+  );
+
   if (!data) return null;
   
   return (
@@ -102,7 +110,17 @@ function ResumeViewer({ data: initialData, resumeId, editable = true }) {
         {/* Left Column */}
         <div>
           {/* Personal Information */}
-          {data.personal_information && (
+          {!data.personal_information ? (
+            <div className="mb-6">
+              <div className="flex items-center mb-3">
+                <User className="h-5 w-5 text-gray-600 mr-2" />
+                <h3 className="text-lg font-semibold text-gray-900">Personal Information</h3>
+              </div>
+              <div className="ml-7">
+                <SectionSkeleton />
+              </div>
+            </div>
+          ) : (
             <div className="mb-6">
               <div className="flex items-center mb-3">
                 <User className="h-5 w-5 text-gray-600 mr-2" />

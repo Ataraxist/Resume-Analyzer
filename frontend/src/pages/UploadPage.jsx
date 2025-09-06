@@ -5,7 +5,36 @@ import ProcessingStatus from '../components/resume/ProcessingStatus';
 import ResumeViewer from '../components/resume/ResumeViewer';
 import PreviousResumes from '../components/resume/PreviousResumes';
 import resumeService from '../services/resumeService';
-import { Briefcase, ArrowLeft, Upload } from 'lucide-react';
+import { Briefcase, ArrowLeft, Upload, Info } from 'lucide-react';
+
+// Whimsical loading messages
+const loadingMessages = [
+  'Reticulating splines...',
+  'Calibrating quantum flux capacitors...',
+  'Harmonizing temporal matrices...',
+  'Initializing synergy protocols...',
+  'Defragmenting neural pathways...',
+  'Optimizing blockchain parameters...',
+  'Synthesizing digital essence...',
+  'Triangulating career vectors...',
+  'Compiling professional aura...',
+  'Reversing polarity of skill nodes...',
+  'Energizing talent crystals...',
+  'Aligning chakra databases...',
+  'Parsing excellence wavelengths...',
+  'Quantizing achievement particles...',
+  'Virtualizing competency cores...',
+  'Bootstrapping wisdom engines...',
+  'Normalizing experience gradients...',
+  'Tokenizing professional karma...',
+  'Computing destiny algorithms...',
+  'Activating neural handshake...',
+  'Establishing quantum entanglement...',
+  'Downloading more RAM...',
+  'Consulting the ancient scrolls...',
+  'Appeasing the algorithm gods...',
+  'Charging talent capacitors...'
+];
 
 function UploadPage() {
   const navigate = useNavigate();
@@ -16,6 +45,8 @@ function UploadPage() {
   const [structuredData, setStructuredData] = useState(null);
   const [error, setError] = useState(null);
   const [refreshResumes, setRefreshResumes] = useState(0);
+  const [currentStatus, setCurrentStatus] = useState('');
+  const [showTooltip, setShowTooltip] = useState(false);
   
   useEffect(() => {
     // Check if occupation was selected
@@ -29,6 +60,25 @@ function UploadPage() {
       setSelectedOccupation(occupation);
     }
   }, [location, navigate]);
+
+  // Rotate through whimsical messages during processing
+  useEffect(() => {
+    if (processingStatus === 'processing') {
+      // Start with a random message
+      let messageIndex = Math.floor(Math.random() * loadingMessages.length);
+      setCurrentStatus(loadingMessages[messageIndex]);
+      
+      // Rotate through messages
+      const timer = setInterval(() => {
+        messageIndex = (messageIndex + 1) % loadingMessages.length;
+        setCurrentStatus(loadingMessages[messageIndex]);
+      }, 2500); // Change every 2.5 seconds
+      
+      return () => clearInterval(timer);
+    } else {
+      setCurrentStatus('');
+    }
+  }, [processingStatus]);
   
   const handleUpload = async (file) => {
     try {
@@ -40,24 +90,102 @@ function UploadPage() {
       setResumeId(uploadResult.resumeId);
       setProcessingStatus('processing');
       
-      // Poll for processing status
-      const statusResult = await resumeService.pollStatus(uploadResult.resumeId);
+      // Initialize empty structured data for progressive updates
+      setStructuredData({
+        detected_profession: null,
+        personal_information: null,
+        education: [],
+        experience: [],
+        skills: null,
+        achievements: null,
+        credentials: null,
+        summary: null
+      });
       
-      if (statusResult.status === 'completed') {
-        setProcessingStatus('completed');
-        
-        // Get structured data
-        const structured = await resumeService.getStructuredData(uploadResult.resumeId);
-        setStructuredData(structured);
-        
-        // Trigger refresh of previous resumes list
-        setRefreshResumes(prev => prev + 1);
-      } else {
-        throw new Error('Resume processing failed');
-      }
+      // Stream parsing results
+      const cleanup = resumeService.streamParsing(
+        uploadResult.resumeId,
+        // On field update
+        (field, value) => {
+          setStructuredData(prev => ({
+            ...prev,
+            [field]: value
+          }));
+        },
+        // On complete
+        (finalData) => {
+          setStructuredData(finalData);
+          setProcessingStatus('completed');
+          // Trigger refresh of previous resumes list
+          setRefreshResumes(prev => prev + 1);
+        },
+        // On error
+        (errorMessage) => {
+          setError(errorMessage);
+          setProcessingStatus('failed');
+        }
+      );
+      
+      // Store cleanup function for component unmount
+      return cleanup;
     } catch (err) {
       setError(err.message || 'Upload failed');
       setProcessingStatus('failed');
+    }
+  };
+  
+  const handleGoogleDocsImport = async (url) => {
+    try {
+      setError(null);
+      setProcessingStatus('uploading');
+      
+      // Import from Google Docs
+      const importResult = await resumeService.importFromGoogleDoc(url);
+      setResumeId(importResult.resumeId);
+      setProcessingStatus('processing');
+      
+      // Initialize empty structured data for progressive updates
+      setStructuredData({
+        detected_profession: null,
+        personal_information: null,
+        education: [],
+        experience: [],
+        skills: null,
+        achievements: null,
+        credentials: null,
+        summary: null
+      });
+      
+      // Stream parsing results
+      const cleanup = resumeService.streamParsing(
+        importResult.resumeId,
+        // On field update
+        (field, value) => {
+          setStructuredData(prev => ({
+            ...prev,
+            [field]: value
+          }));
+        },
+        // On complete
+        (finalData) => {
+          setStructuredData(finalData);
+          setProcessingStatus('completed');
+          // Trigger refresh of previous resumes list
+          setRefreshResumes(prev => prev + 1);
+        },
+        // On error
+        (errorMessage) => {
+          setError(errorMessage);
+          setProcessingStatus('failed');
+        }
+      );
+      
+      // Store cleanup function for component unmount
+      return cleanup;
+    } catch (err) {
+      setError(err.message || 'Google Docs import failed');
+      setProcessingStatus('failed');
+      throw err; // Re-throw to be caught by ResumeUpload component
     }
   };
   
@@ -91,8 +219,8 @@ function UploadPage() {
   
   return (
     <>
-      {/* Show upload interface when no resume is uploaded */}
-      {!structuredData && (
+      {/* Show upload interface when no resume is being processed */}
+      {!structuredData && processingStatus !== 'processing' && (
         <div className="min-h-[calc(100vh-200px)] flex items-center justify-center px-4">
           <div className="w-full max-w-2xl">
             {/* Selected Job Banner */}
@@ -127,7 +255,10 @@ function UploadPage() {
             
             {!processingStatus && (
               <>
-                <ResumeUpload onUpload={handleUpload} />
+                <ResumeUpload 
+                  onUpload={handleUpload} 
+                  onGoogleDocsImport={handleGoogleDocsImport}
+                />
                 
                 {/* Show previous resumes below the upload box */}
                 <div className="mt-6">
@@ -139,20 +270,74 @@ function UploadPage() {
               </>
             )}
             
-            {processingStatus && !structuredData && (
-              <ProcessingStatus 
-                status={processingStatus}
-                error={error}
-                onReset={handleReset}
-              />
-            )}
           </div>
         </div>
       )}
       
-      {/* Show full-width resume viewer when resume is uploaded */}
-      {structuredData && (
+      {/* Show full-width resume viewer when resume is uploaded or being processed */}
+      {(structuredData || processingStatus === 'processing') && (
         <div className="max-w-7xl mx-auto px-4">
+          {/* Whimsical Processing Status Banner */}
+          {processingStatus === 'processing' && currentStatus && (
+            <div className="fixed top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 z-50 w-11/12 md:w-auto max-w-md animate-fade-in">
+              <div className="bg-gradient-to-r from-primary-50 to-indigo-50 border border-primary-200 rounded-full shadow-lg px-4 md:px-6 py-2 md:py-3">
+                <div className="flex items-center space-x-3">
+                  <div className="relative">
+                    <div className="animate-spin rounded-full h-5 w-5 border-2 border-primary-200 border-t-primary-600"></div>
+                    <div className="absolute inset-0 animate-ping rounded-full h-5 w-5 border border-primary-400 opacity-20"></div>
+                  </div>
+                  <span className="text-sm font-medium text-gray-700 italic">
+                    {currentStatus}
+                  </span>
+                  
+                  {/* Info icon with tooltip */}
+                  <div className="relative">
+                    <button
+                      onMouseEnter={() => setShowTooltip(true)}
+                      onMouseLeave={() => setShowTooltip(false)}
+                      onClick={() => setShowTooltip(!showTooltip)}
+                      className="text-gray-400 hover:text-gray-600 transition-colors focus:outline-none"
+                      aria-label="What's happening?"
+                    >
+                      <Info className="h-4 w-4" />
+                    </button>
+                    
+                    {/* Tooltip */}
+                    {showTooltip && (
+                      <div className="absolute md:left-1/2 md:transform md:-translate-x-1/2 right-0 md:right-auto top-8 w-72 max-w-[calc(100vw-2rem)] p-3 bg-gray-900 text-white text-xs rounded-lg shadow-xl z-10">
+                        <div className="absolute -top-2 left-1/2 transform -translate-x-1/2 w-0 h-0 border-l-[6px] border-l-transparent border-r-[6px] border-r-transparent border-b-[8px] border-b-gray-900"></div>
+                        <p className="font-semibold mb-1">What's actually happening:</p>
+                        <p className="leading-relaxed">
+                          Our AI is analyzing your resume text and extracting structured data 
+                          (contact info, experience, skills, education, etc.) into a standardized 
+                          format. This allows us to perform detailed comparisons with job requirements 
+                          and provide personalized recommendations.
+                        </p>
+                        <p className="mt-2 text-gray-300 text-[10px]">
+                          The fun messages are just for entertainment while you wait!
+                        </p>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Progress bar */}
+          {processingStatus === 'processing' && (
+            <div className="mb-4">
+              <div className="w-full bg-gray-200 rounded-full h-1.5 overflow-hidden">
+                <div className="bg-gradient-to-r from-primary-400 to-indigo-500 h-1.5 rounded-full animate-pulse"
+                     style={{
+                       width: `${Math.min((Object.keys(structuredData || {}).filter(k => structuredData?.[k] !== null).length / 8) * 100, 95)}%`,
+                       transition: 'width 0.5s ease-out'
+                     }}>
+                </div>
+              </div>
+            </div>
+          )}
+
           {/* Header with upload new document button */}
           <div className="flex items-center justify-between mb-6">
             <div className="flex items-center space-x-4">
@@ -177,6 +362,7 @@ function UploadPage() {
               <button
                 onClick={handleReset}
                 className="btn btn-secondary flex items-center"
+                disabled={processingStatus === 'processing'}
               >
                 <Upload className="h-4 w-4 mr-2" />
                 Upload New Document
@@ -185,8 +371,9 @@ function UploadPage() {
               <button
                 onClick={handleContinue}
                 className="btn btn-primary"
+                disabled={processingStatus === 'processing' || !structuredData?.personal_information}
               >
-                Continue to Analysis
+                {processingStatus === 'processing' ? 'Processing...' : 'Continue to Analysis'}
               </button>
             </div>
           </div>

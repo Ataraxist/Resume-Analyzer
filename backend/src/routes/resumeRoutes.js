@@ -25,6 +25,14 @@ router.post('/parse-text',
     (req, res) => resumeController.parseText(req, res)
 );
 
+// Import from Google Docs - supports both guests and authenticated users
+router.post('/import-google-doc',
+    optionalAuthMiddleware,
+    trackGuestSession,
+    requireIdentity,
+    (req, res) => resumeController.importGoogleDoc(req, res)
+);
+
 // Get all resumes - authenticated users only (see their own)
 router.get('/', authMiddleware, (req, res) => resumeController.getAllResumes(req, res));
 
@@ -47,12 +55,21 @@ router.get('/:id',
     (req, res) => resumeController.getResume(req, res)
 );
 
-// Get resume processing status - supports both guests and authenticated users
+// Stream resume parsing with SSE - supports both guests and authenticated users
+router.get('/:id/stream',
+    optionalAuthMiddleware,
+    trackGuestSession,
+    requireIdentity,
+    (req, res) => resumeController.streamResumeParsing(req, res)
+);
+
+// Status endpoint deprecated - using SSE streaming instead
+// Kept for backward compatibility but returns static response
 router.get('/:id/status',
     optionalAuthMiddleware,
     trackGuestSession,
     requireIdentity,
-    (req, res) => resumeController.getResumeStatus(req, res)
+    (req, res) => res.json({ status: 'completed', message: 'Use /stream endpoint for real-time updates' })
 );
 
 // Get structured data only - supports both guests and authenticated users

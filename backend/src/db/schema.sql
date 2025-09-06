@@ -285,8 +285,70 @@ CREATE INDEX IF NOT EXISTS idx_guest_sessions_created ON guest_sessions(created_
 CREATE INDEX IF NOT EXISTS idx_guest_sessions_activity ON guest_sessions(last_activity);
 CREATE INDEX IF NOT EXISTS idx_guest_sessions_claimed ON guest_sessions(claimed_by_user_id);
 
+-- Credit Management Tables
+
+-- User credits table - tracks credit balance for each user
+CREATE TABLE IF NOT EXISTS user_credits (
+    user_id INTEGER PRIMARY KEY,
+    credits_balance INTEGER DEFAULT 0,
+    total_purchased INTEGER DEFAULT 0,
+    total_used INTEGER DEFAULT 0,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+);
+
+-- Credit purchases table - records all credit purchases
+CREATE TABLE IF NOT EXISTS credit_purchases (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id INTEGER NOT NULL,
+    package_type TEXT NOT NULL, -- '1', '5', '10'
+    credits_received INTEGER NOT NULL,
+    base_credits INTEGER NOT NULL,
+    bonus_credits INTEGER DEFAULT 0,
+    amount_paid REAL,
+    payment_method TEXT,
+    transaction_id TEXT,
+    purchase_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+);
+
+-- Credit usage table - logs each credit consumption
+CREATE TABLE IF NOT EXISTS credit_usage (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id INTEGER,
+    session_id TEXT,
+    ip_address TEXT,
+    resume_id INTEGER NOT NULL,
+    occupation_code TEXT NOT NULL,
+    analysis_id INTEGER,
+    consumed_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+    FOREIGN KEY (resume_id) REFERENCES resumes(id),
+    FOREIGN KEY (analysis_id) REFERENCES analyses(id)
+);
+
+-- IP usage tracking for anonymous users
+CREATE TABLE IF NOT EXISTS ip_usage_tracking (
+    ip_address TEXT PRIMARY KEY,
+    usage_count INTEGER DEFAULT 0,
+    first_use TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    last_use TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    session_ids TEXT -- JSON array of session IDs
+);
+
+-- Create indexes for credit tables
+CREATE INDEX IF NOT EXISTS idx_credit_purchases_user ON credit_purchases(user_id);
+CREATE INDEX IF NOT EXISTS idx_credit_usage_user ON credit_usage(user_id);
+CREATE INDEX IF NOT EXISTS idx_credit_usage_session ON credit_usage(session_id);
+CREATE INDEX IF NOT EXISTS idx_credit_usage_ip ON credit_usage(ip_address);
+CREATE INDEX IF NOT EXISTS idx_credit_usage_date ON credit_usage(consumed_at);
+
 -- Insert initial system metadata
-INSERT OR REPLACE INTO system_metadata (key, value) VALUES ('schema_version', '3.0.0');
+INSERT OR REPLACE INTO system_metadata (key, value) VALUES ('schema_version', '4.0.0');
 INSERT OR REPLACE INTO system_metadata (key, value) VALUES ('last_full_sync', NULL);
 INSERT OR REPLACE INTO system_metadata (key, value) VALUES ('auth_enabled', 'true');
 INSERT OR REPLACE INTO system_metadata (key, value) VALUES ('guest_mode_enabled', 'true');
+INSERT OR REPLACE INTO system_metadata (key, value) VALUES ('credits_enabled', 'true');
+INSERT OR REPLACE INTO system_metadata (key, value) VALUES ('anonymous_free_credits', '100');
+INSERT OR REPLACE INTO system_metadata (key, value) VALUES ('signup_bonus_credits', '100');

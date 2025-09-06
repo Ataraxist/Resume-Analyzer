@@ -1,5 +1,6 @@
 import userModel from '../models/userModel.js';
 import resumeModel from '../models/resumeModel.js';
+import creditService from '../services/creditService.js';
 import database from '../db/database.js';
 import jwt from 'jsonwebtoken';
 import { validationResult } from 'express-validator';
@@ -77,6 +78,9 @@ class AuthController {
                 }
             }
             
+            // Initialize user credits with signup bonus
+            await creditService.initializeUserCredits(user.id, true);
+            
             // Generate tokens
             const accessToken = this.generateAccessToken(user.id);
             const refreshToken = this.generateRefreshToken(user.id);
@@ -92,9 +96,12 @@ class AuthController {
                 maxAge: 7 * 24 * 60 * 60 * 1000 // 7 days
             });
             
+            // Get user's credit balance
+            const credits = await creditService.getUserCredits(user.id);
+            
             res.status(201).json({
                 success: true,
-                message: 'User created successfully',
+                message: 'User created successfully. You have received 5 bonus credits!',
                 data: {
                     user: {
                         id: user.id,
@@ -103,7 +110,8 @@ class AuthController {
                         fullName: user.fullName
                     },
                     accessToken,
-                    verificationToken: user.verificationToken // For email verification
+                    verificationToken: user.verificationToken, // For email verification
+                    creditsBalance: credits.credits_balance
                 }
             });
         } catch (error) {

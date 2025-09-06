@@ -2,11 +2,15 @@ import express from 'express';
 import cors from 'cors';
 import cookieParser from 'cookie-parser';
 import session from 'express-session';
+import connectSqlite3 from 'connect-sqlite3';
 import crypto from 'crypto';
 import dotenv from 'dotenv';
+import path from 'path';
+import { fileURLToPath } from 'url';
 import database from './src/db/database.js';
 import onetService from './src/services/onetService.js';
 import authRoutes from './src/routes/authRoutes.js';
+import creditRoutes from './src/routes/creditRoutes.js';
 import resumeRoutes from './src/routes/resumeRoutes.js';
 import analysisRoutes from './src/routes/analysisRoutes.js';
 
@@ -15,9 +19,21 @@ dotenv.config();
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-// Session configuration
+// Get directory name for ES modules
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
+// SQLite session store
+const SQLiteStore = connectSqlite3(session);
+
+// Session configuration with persistent storage
 const sessionConfig = {
-    secret: process.env.SESSION_SECRET || crypto.randomBytes(32).toString('hex'),
+    store: new SQLiteStore({
+        db: 'sessions.db',
+        dir: path.join(__dirname, 'data'),
+        concurrentDB: true
+    }),
+    secret: process.env.SESSION_SECRET || process.env.JWT_SECRET || crypto.randomBytes(32).toString('hex'),
     resave: false,
     saveUninitialized: true, // Important: create session for guests
     cookie: {
@@ -68,6 +84,9 @@ async function initializeServices() {
 
 // Authentication routes
 app.use('/api/auth', authRoutes);
+
+// Credit management routes
+app.use('/api/credits', creditRoutes);
 
 // Resume routes (Phase 2)
 app.use('/api/resume', resumeRoutes);
@@ -467,7 +486,7 @@ app.use((req, res) => {
 async function startServer() {
     await initializeServices();
     
-    app.listen(PORT, () => {
+    const server = app.listen(PORT, () => {
         console.log(`\n🚀 Server running on http://localhost:${PORT}`);
         console.log(`📚 API Documentation:`);
         console.log(`\n📄 Resume Endpoints (Phase 2):`);
@@ -499,6 +518,9 @@ async function startServer() {
         console.log(`   GET  /api/onet/status                   - Fetch status`);
         console.log(`   POST /api/onet/fetch-occupation/:code   - Manually fetch occupation data\n`);
     });
+    
+    // Set server timeout to 5 minutes for long GPT-5 responses
+    server.timeout = 300000; // 5 minutes
 }
 
 // Handle graceful shutdown

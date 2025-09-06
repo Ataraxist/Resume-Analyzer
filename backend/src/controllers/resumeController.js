@@ -1,6 +1,7 @@
 import resumeModel from '../models/resumeModel.js';
 import fileExtractorService from '../services/fileExtractorService.js';
 import resumeParserService from '../services/resumeParserService.js';
+import googleDocsService from '../services/googleDocsService.js';
 
 class ResumeController {
     // Helper to check resume ownership for both users and guests
@@ -12,6 +13,80 @@ class ResumeController {
         }
         return false;
     }
+
+    // Stream resume parsing with SSE
+    async streamResumeParsing(req, res) {
+        const { id } = req.params;
+        
+        try {
+            // Check ownership
+            const isOwner = await this.checkResumeOwnership(id, req.identity);
+            if (!isOwner) {
+                return res.status(403).json({ error: 'Access denied' });
+            }
+
+            // Get resume with raw text
+            const resume = await resumeModel.getResumeById(id);
+            if (!resume) {
+                return res.status(404).json({ error: 'Resume not found' });
+            }
+
+            if (!resume.raw_text) {
+                return res.status(400).json({ error: 'Resume text not available' });
+            }
+
+            // Set SSE headers
+            res.writeHead(200, {
+                'Content-Type': 'text/event-stream',
+                'Cache-Control': 'no-cache',
+                'Connection': 'keep-alive',
+                'X-Accel-Buffering': 'no' // Disable Nginx buffering
+            });
+
+            // Send initial connection event
+            res.write(`event: connected\ndata: ${JSON.stringify({ resumeId: id })}\n\n`);
+
+            // Keep connection alive with heartbeat
+            const heartbeat = setInterval(() => {
+                res.write(`event: heartbeat\ndata: ${Date.now()}\n\n`);
+            }, 30000);
+
+            // Clean up on client disconnect
+            req.on('close', () => {
+                clearInterval(heartbeat);
+            });
+
+            // Parse resume with streaming
+            const structuredData = await resumeParserService.parseResumeStream(
+                resume.raw_text,
+                (field, value) => {
+                    // Send field update via SSE
+                    res.write(`event: field_update\ndata: ${JSON.stringify({ field, value })}\n\n`);
+                    
+                    // Update database with partial data (optional - can be removed if not needed)
+                    // resumeModel.updatePartialStructuredData(id, field, value).catch(err => {
+                    //     console.error(`Error updating partial data for ${id}:`, err);
+                    // });
+                }
+            );
+
+            // Send completion event
+            res.write(`event: completed\ndata: ${JSON.stringify(structuredData)}\n\n`);
+
+            // Update final structured data
+            await resumeModel.updateStructuredData(id, structuredData);
+
+            // Clean up
+            clearInterval(heartbeat);
+            res.end();
+
+        } catch (error) {
+            console.error('Error streaming resume parse:', error);
+            res.write(`event: error\ndata: ${JSON.stringify({ error: error.message })}\n\n`);
+            res.end();
+        }
+    }
+
     // Upload and process resume
     async uploadResume(req, res) {
         try {
@@ -40,15 +115,18 @@ class ResumeController {
                 processing_status: 'processing'
             });
 
-            // Send immediate response
-            res.status(202).json({
-                message: 'Resume uploaded and processing started',
+            // Step 2: Extract text from file
+            const extractedText = await fileExtractorService.extractText(buffer, mimetype);
+            
+            // Update the database with extracted text
+            await resumeModel.updateRawText(resumeId, extractedText);
+            
+            // Send response with resumeId for SSE connection
+            res.json({
+                message: 'Resume uploaded successfully',
                 resumeId,
-                status: 'processing'
+                status: 'ready_for_streaming'
             });
-
-            // Continue processing asynchronously
-            this.processResumeAsync(resumeId, buffer, mimetype);
 
         } catch (error) {
             console.error('Error uploading resume:', error);
@@ -56,29 +134,6 @@ class ResumeController {
         }
     }
 
-    // Async processing of resume
-    async processResumeAsync(resumeId, buffer, mimetype) {
-        try {
-            // Step 2: Extract text from file
-            const extractedText = await fileExtractorService.extractText(buffer, mimetype);
-
-            // Update the database with extracted text and status
-            await resumeModel.updateRawText(resumeId, extractedText);
-            await resumeModel.updateResumeStatus(resumeId, 'processing');
-
-            // Step 3: Parse resume with AI
-            const structuredData = await resumeParserService.parseResume(extractedText);
-
-            // Step 4: Update with structured data
-            await resumeModel.updateStructuredData(resumeId, structuredData);
-
-            console.log(`Resume ${resumeId} processed successfully`);
-
-        } catch (error) {
-            console.error(`Error processing resume ${resumeId}:`, error);
-            await resumeModel.updateResumeStatus(resumeId, 'failed', error.message);
-        }
-    }
 
     // Parse raw text input
     async parseText(req, res) {
@@ -115,6 +170,89 @@ class ResumeController {
         } catch (error) {
             console.error('Error parsing text:', error);
             res.status(500).json({ error: `Failed to parse text: ${error.message}` });
+        }
+    }
+
+    // Import resume from Google Docs
+    async importGoogleDoc(req, res) {
+        try {
+            const { url } = req.body;
+
+            if (!url || url.trim().length === 0) {
+                return res.status(400).json({ error: 'No Google Docs URL provided' });
+            }
+
+            // Fetch document from Google Docs
+            const documentData = await googleDocsService.fetchDocument(url);
+            
+            let extractedText = '';
+            let filename = `google-doc-${documentData.documentId}.${documentData.format}`;
+            let fileType = documentData.format === 'pdf' ? 'application/pdf' : 'text/plain';
+            let fileSize = 0;
+
+            // Handle different formats returned by Google Docs service
+            if (documentData.format === 'txt') {
+                extractedText = documentData.text;
+                fileSize = documentData.text.length;
+            } else if (documentData.format === 'pdf' && documentData.buffer) {
+                // Extract text from PDF buffer
+                extractedText = await fileExtractorService.extractText(
+                    documentData.buffer, 
+                    documentData.mimeType
+                );
+                fileSize = documentData.buffer.length;
+            }
+
+            if (!extractedText || extractedText.trim().length === 0) {
+                return res.status(400).json({ 
+                    error: 'Could not extract text from the document. Please ensure it contains readable text.' 
+                });
+            }
+
+            // Create resume entry
+            const resumeId = await resumeModel.createResume({
+                userId: req.identity?.userId || null,
+                sessionId: req.identity?.sessionId || null,
+                filename: filename,
+                file_type: fileType,
+                file_size: fileSize,
+                raw_text: extractedText,
+                processing_status: 'processing'
+            });
+
+            // Send response with resumeId for SSE connection
+            res.json({
+                message: 'Google Docs document imported successfully',
+                resumeId,
+                status: 'ready_for_streaming',
+                documentId: documentData.documentId
+            });
+
+        } catch (error) {
+            console.error('Error importing Google Docs document:', error);
+            
+            // Send user-friendly error messages
+            if (error.message.includes('publicly accessible') || 
+                error.message.includes('Access denied')) {
+                res.status(403).json({ 
+                    error: error.message,
+                    help: 'To make your document public: Open Google Docs → Click Share → Change to "Anyone with the link can view"'
+                });
+            } else if (error.message.includes('Invalid Google Docs URL')) {
+                res.status(400).json({ 
+                    error: error.message,
+                    help: 'Please provide a valid Google Docs or Google Drive link'
+                });
+            } else if (error.message.includes('Document not found')) {
+                res.status(404).json({ error: error.message });
+            } else if (error.message.includes('timed out')) {
+                res.status(504).json({ error: error.message });
+            } else {
+                res.status(500).json({ 
+                    error: 'Failed to import document from Google Docs',
+                    details: error.message
+                });
+            }
         }
     }
 
@@ -273,37 +411,6 @@ class ResumeController {
         }
     }
 
-    // Get resume processing status
-    async getResumeStatus(req, res) {
-        try {
-            const { id } = req.params;
-            
-            // Check ownership (works for both users and guests)
-            const isOwner = await this.checkResumeOwnership(id, req.identity);
-            if (!isOwner) {
-                return res.status(403).json({ error: 'Access denied' });
-            }
-            
-            const resume = await resumeModel.getResumeById(id);
-
-            if (!resume) {
-                return res.status(404).json({ error: 'Resume not found' });
-            }
-
-            res.json({
-                id: resume.id,
-                filename: resume.filename,
-                status: resume.processing_status,
-                error: resume.error_message,
-                createdAt: resume.created_at,
-                updatedAt: resume.updated_at
-            });
-
-        } catch (error) {
-            console.error('Error fetching resume status:', error);
-            res.status(500).json({ error: 'Failed to fetch resume status' });
-        }
-    }
 
     // Extract key elements for O*NET mapping (preparation for Phase 3)
     async extractKeyElements(req, res) {

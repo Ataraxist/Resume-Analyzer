@@ -8,6 +8,7 @@ class ResumeParserService {
         // Don't initialize in constructor to avoid startup issues
         this.openai = null;
         this.isConfigured = false;
+        this.parsingModel = null;
     }
 
     initialize() {
@@ -16,7 +17,10 @@ class ResumeParserService {
         if (apiKey && apiKey !== 'your_openai_api_key_here') {
             this.openai = new OpenAI({ apiKey });
             this.isConfigured = true;
-            console.log('✅ OpenAI API configured for resume parsing');
+            
+            // Use configurable model for parsing, default to gpt-5-mini for accuracy and cost-effectiveness
+            this.parsingModel = process.env.OPENAI_PARSING_MODEL || 'gpt-5-mini';
+            console.log(`✅ OpenAI API configured for resume parsing using model: ${this.parsingModel}`);
         } else {
             this.openai = null;
             this.isConfigured = false;
@@ -24,7 +28,19 @@ class ResumeParserService {
         }
     }
 
-    async parseResume(resumeText) {
+    // Helper to check if a value has actual content (not empty)
+    hasContent(value) {
+        if (value === null || value === undefined) return false;
+        if (typeof value === 'string') return value.trim().length > 0;
+        if (Array.isArray(value)) return value.length > 0;
+        if (typeof value === 'object') {
+            // Check if object has at least one property with content
+            return Object.keys(value).some(key => this.hasContent(value[key]));
+        }
+        return true;
+    }
+
+    async parseResumeStream(resumeText, onFieldUpdate) {
         // Initialize on first use if not already done
         if (!this.isConfigured && !this.openai) {
             this.initialize();
@@ -34,7 +50,117 @@ class ResumeParserService {
             throw new Error('OpenAI API key not configured. Please set OPENAI_API_KEY in .env file');
         }
 
-        const systemPrompt = `You are an expert resume parser that handles ALL professions - from software developers to carpenters, from nuclear physicists to artists. Extract structured data from the resume text and return it in JSON format.
+        const systemPrompt = this.getSystemPrompt();
+
+        try {
+            const stream = await this.openai.chat.completions.create({
+                model: this.parsingModel,
+                messages: [
+                    { role: 'system', content: systemPrompt },
+                    { role: 'user', content: `Parse this resume:\n\n${resumeText}` }
+                ],
+                response_format: { type: 'json_object' },
+                stream: true
+            });
+
+            let fullContent = '';
+            let currentObject = {};
+            let chunkCount = 0;
+            
+            for await (const chunk of stream) {
+                const delta = chunk.choices[0]?.delta?.content;
+                if (delta) {
+                    fullContent += delta;
+                    chunkCount++;
+                    
+                    
+                    // Try to parse accumulated JSON and extract completed fields
+                    try {
+                        // Attempt to parse partial JSON by adding closing braces
+                        const tentativeJson = this.attemptPartialParse(fullContent);
+                        if (tentativeJson) {
+                            // Check for newly completed fields with actual content
+                            for (const [field, value] of Object.entries(tentativeJson)) {
+                                // Only emit if field hasn't been sent and has actual content
+                                if (!currentObject[field] && this.hasContent(value)) {
+                                    currentObject[field] = value;
+                                    console.log(`Field completed: ${field} (type: ${typeof value}, size: ${JSON.stringify(value).length} chars)`);
+                                    // Emit field update
+                                    if (onFieldUpdate) {
+                                        onFieldUpdate(field, value);
+                                    }
+                                }
+                            }
+                        }
+                    } catch (e) {
+                        // Partial JSON not yet parseable, continue accumulating
+                    }
+                }
+            }
+
+            // Parse final complete JSON
+            const parsedData = JSON.parse(fullContent);
+            
+            // Validate the structure
+            this.validateStructure(parsedData);
+            
+            return parsedData;
+        } catch (error) {
+            console.error('Error parsing resume with streaming AI:', error);
+            
+            // If it's an API key issue, provide helpful message
+            if (error.message?.includes('API key')) {
+                throw new Error('OpenAI API key not configured. Please add OPENAI_API_KEY to .env file');
+            }
+            
+            throw new Error(`Resume parsing failed: ${error.message}`);
+        }
+    }
+
+    attemptPartialParse(jsonString) {
+        // Try to parse incomplete JSON by intelligently adding closing brackets
+        try {
+            // First, try to fix any incomplete strings by adding quotes
+            let tentative = jsonString;
+            
+            // Check if we're in the middle of a string value
+            const lastQuoteIndex = tentative.lastIndexOf('"');
+            if (lastQuoteIndex > -1) {
+                // Check if there's an odd number of quotes after the last colon
+                const afterLastColon = tentative.substring(tentative.lastIndexOf(':') + 1);
+                const quoteCount = (afterLastColon.match(/"/g) || []).length;
+                if (quoteCount % 2 === 1) {
+                    // We're in the middle of a string, close it
+                    tentative += '"';
+                }
+            }
+            
+            // Count open brackets to determine what needs closing
+            const openCurly = (tentative.match(/{/g) || []).length;
+            const closeCurly = (tentative.match(/}/g) || []).length;
+            const openSquare = (tentative.match(/\[/g) || []).length;
+            const closeSquare = (tentative.match(/]/g) || []).length;
+            
+            // Add missing closing brackets
+            for (let i = 0; i < openSquare - closeSquare; i++) {
+                tentative += ']';
+            }
+            for (let i = 0; i < openCurly - closeCurly; i++) {
+                tentative += '}';
+            }
+            
+            return JSON.parse(tentative);
+        } catch (e) {
+            // If parsing still fails, log for debugging
+            if (jsonString.length > 100 && jsonString.length % 500 === 0) {
+                console.log(`Partial parse attempt failed at ${jsonString.length} chars`);
+            }
+            return null;
+        }
+    }
+
+    getSystemPrompt() {
+        return `You are an expert resume parser that handles ALL professions - from software developers to carpenters, from nuclear physicists to artists. Extract structured data from the resume text and return it in JSON format.
 
 IMPORTANT: The JSON structure must EXACTLY match this universal schema:
 
@@ -107,22 +233,37 @@ PARSING RULES:
    - For non-tech: "languages" means spoken languages only
    - For trades: tools_equipment includes physical tools (saws, drills, etc.)
    - For academics: emphasize publications and research in achievements
-3. Extract ALL information, even if fields seem tech-specific
+3. CRITICAL: Extract EVERY piece of information from the resume - nothing should be lost
+   - If unsure where something belongs, place it in the most relevant category
+   - Use the "summary" field to capture any context that doesn't fit elsewhere
+   - Better to duplicate information than to lose it
 4. Use null for missing strings, empty arrays for missing lists
 5. Don't force tech-specific items (like GitHub) for non-tech professionals
 6. Recognize diverse achievements (art exhibitions = projects, research papers = publications)
-7. Return ONLY valid JSON without any markdown formatting`;
+7. Before finalizing, review the original resume to ensure NO information was omitted
+8. Return ONLY valid JSON without any markdown formatting`;
+    }
+
+    async parseResume(resumeText) {
+        // Initialize on first use if not already done
+        if (!this.isConfigured && !this.openai) {
+            this.initialize();
+        }
+        
+        if (!this.isConfigured) {
+            throw new Error('OpenAI API key not configured. Please set OPENAI_API_KEY in .env file');
+        }
+
+        const systemPrompt = this.getSystemPrompt();
 
         try {
             const response = await this.openai.chat.completions.create({
-                model: 'gpt-4o-mini',
+                model: this.parsingModel,
                 messages: [
                     { role: 'system', content: systemPrompt },
                     { role: 'user', content: `Parse this resume:\n\n${resumeText}` }
                 ],
-                response_format: { type: 'json_object' },
-                temperature: 0.2,
-                max_tokens: 4000
+                response_format: { type: 'json_object' }
             });
 
             const parsedData = JSON.parse(response.choices[0].message.content);

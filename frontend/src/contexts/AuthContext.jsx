@@ -193,7 +193,11 @@ export const AuthProvider = ({ children }) => {
             async (error) => {
                 const originalRequest = error.config;
                 
-                if (error.response?.status === 401 && !originalRequest._retry) {
+                // Don't attempt to refresh if this is already a refresh request or auth endpoint
+                const isAuthEndpoint = originalRequest.url?.includes('/auth/refresh') || 
+                                     originalRequest.url?.includes('/auth/login');
+                
+                if (error.response?.status === 401 && !originalRequest._retry && !isAuthEndpoint) {
                     originalRequest._retry = true;
                     
                     const refreshed = await refreshToken();

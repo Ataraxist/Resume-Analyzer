@@ -1,6 +1,7 @@
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { AuthProvider } from './contexts/AuthContext';
+import { CreditProvider } from './contexts/CreditContext';
 import ProtectedRoute from './components/auth/ProtectedRoute';
 import Layout from './components/layout/Layout';
 import HomePage from './pages/HomePage';
@@ -27,7 +28,8 @@ function App() {
     <QueryClientProvider client={queryClient}>
       <Router>
         <AuthProvider>
-          <Routes>
+          <CreditProvider>
+            <Routes>
             {/* Public routes */}
             <Route path="/login" element={<LoginPage />} />
             <Route path="/signup" element={<SignupPage />} />
@@ -53,7 +55,8 @@ function App() {
                 </ProtectedRoute>
               } />
             </Route>
-          </Routes>
+            </Routes>
+          </CreditProvider>
         </AuthProvider>
       </Router>
     </QueryClientProvider>

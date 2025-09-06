@@ -14,6 +14,7 @@ class DimensionComparator {
     constructor() {
         this.openai = null;
         this.isConfigured = false;
+        this.analysisModel = null;
         this.initialize();
     }
 
@@ -23,6 +24,10 @@ class DimensionComparator {
         if (apiKey && apiKey !== 'your_openai_api_key_here') {
             this.openai = new OpenAI({ apiKey });
             this.isConfigured = true;
+            
+            // Use configurable model for analysis, default to gpt-5 for best quality
+            this.analysisModel = process.env.OPENAI_ANALYSIS_MODEL || 'gpt-5';
+            console.log(`✅ OpenAI configured for job fit analysis using model: ${this.analysisModel}`);
         } else {
             console.warn('⚠️  OpenAI API key not configured for dimension comparison');
         }
@@ -57,13 +62,12 @@ Return ONLY valid JSON without any markdown formatting.`;
 
         try {
             const response = await this.openai.chat.completions.create({
-                model: 'gpt-4o-mini',
+                model: this.analysisModel,
                 messages: [
                     { role: 'system', content: 'You are an expert career counselor analyzing resume fit against O*NET job requirements.' },
                     { role: 'user', content: prompt }
                 ],
-                temperature: 0.3,
-                max_tokens: 1000
+                response_format: { type: 'json_object' }
             });
 
             const content = stripMarkdownJson(response.choices[0].message.content);
@@ -124,13 +128,12 @@ Return ONLY valid JSON without any markdown formatting.`;
 
         try {
             const response = await this.openai.chat.completions.create({
-                model: 'gpt-4o-mini',
+                model: this.analysisModel,
                 messages: [
                     { role: 'system', content: 'You are an expert skills analyst comparing candidate skills to job requirements.' },
                     { role: 'user', content: prompt }
                 ],
-                temperature: 0.3,
-                max_tokens: 1000
+                response_format: { type: 'json_object' }
             });
 
             const content = stripMarkdownJson(response.choices[0].message.content);
@@ -188,13 +191,12 @@ Return ONLY valid JSON without any markdown formatting.`;
 
         try {
             const response = await this.openai.chat.completions.create({
-                model: 'gpt-4o-mini',
+                model: this.analysisModel,
                 messages: [
                     { role: 'system', content: 'You are an education requirements analyst.' },
                     { role: 'user', content: prompt }
                 ],
-                temperature: 0.3,
-                max_tokens: 800
+                response_format: { type: 'json_object' }
             });
 
             const content = stripMarkdownJson(response.choices[0].message.content);
@@ -246,13 +248,12 @@ Return ONLY valid JSON without any markdown formatting.`;
 
         try {
             const response = await this.openai.chat.completions.create({
-                model: 'gpt-4o-mini',
+                model: this.analysisModel,
                 messages: [
                     { role: 'system', content: 'You are a work activity analyst comparing experience to job requirements.' },
                     { role: 'user', content: prompt }
                 ],
-                temperature: 0.3,
-                max_tokens: 1000
+                response_format: { type: 'json_object' }
             });
 
             const content = stripMarkdownJson(response.choices[0].message.content);
@@ -306,13 +307,12 @@ Return ONLY valid JSON without any markdown formatting.`;
 
         try {
             const response = await this.openai.chat.completions.create({
-                model: 'gpt-4o-mini',
+                model: this.analysisModel,
                 messages: [
                     { role: 'system', content: 'You are a knowledge requirements analyst.' },
                     { role: 'user', content: prompt }
                 ],
-                temperature: 0.3,
-                max_tokens: 1000
+                response_format: { type: 'json_object' }
             });
 
             const content = stripMarkdownJson(response.choices[0].message.content);
@@ -357,13 +357,12 @@ Return ONLY valid JSON without any markdown formatting.`;
 
         try {
             const response = await this.openai.chat.completions.create({
-                model: 'gpt-4o-mini',
+                model: this.analysisModel,
                 messages: [
                     { role: 'system', content: 'You are a technical tools analyst.' },
                     { role: 'user', content: prompt }
                 ],
-                temperature: 0.3,
-                max_tokens: 800
+                response_format: { type: 'json_object' }
             });
 
             const content = stripMarkdownJson(response.choices[0].message.content);

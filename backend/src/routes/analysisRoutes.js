@@ -2,14 +2,17 @@ import express from 'express';
 import analysisController from '../controllers/analysisController.js';
 import authMiddleware, { optionalAuthMiddleware } from '../middleware/authMiddleware.js';
 import { requireIdentity, trackGuestSession } from '../middleware/sessionMiddleware.js';
+import { requireCredits, consumeCredits } from '../middleware/creditMiddleware.js';
 
 const router = express.Router();
 
-// Main analysis endpoint - supports both guests and authenticated users
+// Main analysis endpoint - supports both guests and authenticated users with credit checks
 router.post('/analyze',
     optionalAuthMiddleware,
     trackGuestSession,
     requireIdentity,
+    requireCredits,  // Check if user has credits before proceeding
+    consumeCredits,  // Consume credits after successful analysis
     (req, res) => analysisController.analyzeResume(req, res)
 );
 
