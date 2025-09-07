@@ -1,4 +1,19 @@
 {
+  "name": "resume-analyzer",
+  "version": "1.0.0",
+  "description": "AI-powered resume analysis platform",
+  "scripts": {
+    "install:backend": "cd backend && npm install",
+    "install:frontend": "cd frontend && npm install",
+    "build:frontend": "cd frontend && npm run build",
+    "build": "npm run build:frontend && cp -r frontend/dist backend/public",
+    "start": "cd backend && NODE_ENV=production node server.js",
+    "postinstall": "npm run install:backend && npm run install:frontend && npm run build"
+  },
+  "engines": {
+    "node": ">=18.0.0",
+    "npm": ">=9.0.0"
+  },
   "dependencies": {
     "form-data": "^4.0.4",
     "node-fetch": "^3.3.2"

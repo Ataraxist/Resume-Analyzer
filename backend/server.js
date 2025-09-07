@@ -58,6 +58,11 @@ app.use(express.json());
 app.use(cookieParser());
 app.use(session(sessionConfig));
 
+// Serve static files from frontend build in production
+if (process.env.NODE_ENV === 'production') {
+    app.use(express.static(path.join(__dirname, 'public')));
+}
+
 // Request logging middleware
 app.use((req, res, next) => {
     console.log(`${new Date().toISOString()} - ${req.method} ${req.path}`);
@@ -477,10 +482,17 @@ app.use((err, req, res, next) => {
     });
 });
 
-// 404 handler
-app.use((req, res) => {
-    res.status(404).json({ error: 'Endpoint not found' });
-});
+// Catch-all route - serve React app for any non-API routes
+if (process.env.NODE_ENV === 'production') {
+    app.get('*', (req, res) => {
+        res.sendFile(path.join(__dirname, 'public', 'index.html'));
+    });
+} else {
+    // 404 handler for development
+    app.use((req, res) => {
+        res.status(404).json({ error: 'Endpoint not found' });
+    });
+}
 
 // Start server
 async function startServer() {
