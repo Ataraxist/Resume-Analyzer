@@ -2,46 +2,102 @@ import analysisModel from '../models/analysisModel.js';
 import analysisService from '../services/analysisService.js';
 
 class AnalysisController {
-    async analyzeResume(req, res) {
+    // Stream analysis with SSE
+    async streamAnalysis(req, res) {
+        const { resumeId, occupationCode } = req.params;
+        
         try {
-            const { resumeId, occupationCode } = req.body;
-
             if (!resumeId || !occupationCode) {
                 return res.status(400).json({ 
                     error: 'Both resumeId and occupationCode are required' 
                 });
             }
 
+            // Check for recent existing analysis
             const existingAnalysis = await analysisModel.getLatestAnalysis(resumeId, occupationCode);
             
             if (existingAnalysis && 
                 new Date() - new Date(existingAnalysis.analysis_date) < 3600000) {
-                console.log('Returning recent analysis from database');
-                return res.json({
-                    message: 'Analysis retrieved from recent results',
+                console.log('Returning recent analysis from database via SSE');
+                
+                // Set SSE headers
+                res.writeHead(200, {
+                    'Content-Type': 'text/event-stream',
+                    'Cache-Control': 'no-cache',
+                    'Connection': 'keep-alive',
+                    'X-Accel-Buffering': 'no'
+                });
+
+                // Send existing data immediately
+                res.write(`event: connected\ndata: ${JSON.stringify({ resumeId, occupationCode })}\n\n`);
+                
+                // Send all dimensions at once for cached data
+                Object.entries(existingAnalysis.dimensionScores || {}).forEach(([dimension, scores]) => {
+                    res.write(`event: dimension_update\ndata: ${JSON.stringify({ 
+                        dimension, 
+                        scores,
+                        cached: true 
+                    })}\n\n`);
+                });
+
+                // Send completion
+                res.write(`event: completed\ndata: ${JSON.stringify({
                     analysisId: existingAnalysis.id,
                     ...existingAnalysis
-                });
+                })}\n\n`);
+                
+                res.end();
+                return;
             }
 
-            const analysis = await analysisService.analyzeResumeAgainstOccupation(
-                resumeId, 
-                occupationCode
+            // Set SSE headers for new analysis
+            res.writeHead(200, {
+                'Content-Type': 'text/event-stream',
+                'Cache-Control': 'no-cache',
+                'Connection': 'keep-alive',
+                'X-Accel-Buffering': 'no'
+            });
+
+            // Send initial connection event
+            res.write(`event: connected\ndata: ${JSON.stringify({ resumeId, occupationCode })}\n\n`);
+
+            // Keep connection alive with heartbeat
+            const heartbeat = setInterval(() => {
+                res.write(`event: heartbeat\ndata: ${Date.now()}\n\n`);
+            }, 30000);
+
+            // Clean up on client disconnect
+            req.on('close', () => {
+                clearInterval(heartbeat);
+            });
+
+            // Stream analysis with dimension updates
+            const analysis = await analysisService.analyzeResumeStream(
+                resumeId,
+                occupationCode,
+                (dimension, scores) => {
+                    // Send dimension update via SSE
+                    res.write(`event: dimension_update\ndata: ${JSON.stringify({ dimension, scores })}\n\n`);
+                }
             );
 
+            // Create analysis record
             const analysisId = await analysisModel.createAnalysis(analysis);
 
-            res.json({
-                message: 'Analysis completed successfully',
+            // Send completion event
+            res.write(`event: completed\ndata: ${JSON.stringify({
                 analysisId,
                 ...analysis
-            });
+            })}\n\n`);
+
+            // Clean up
+            clearInterval(heartbeat);
+            res.end();
 
         } catch (error) {
-            console.error('Error analyzing resume:', error);
-            res.status(500).json({ 
-                error: `Failed to analyze resume: ${error.message}` 
-            });
+            console.error('Error streaming analysis:', error);
+            res.write(`event: error\ndata: ${JSON.stringify({ error: error.message })}\n\n`);
+            res.end();
         }
     }
 

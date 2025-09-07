@@ -1,13 +1,64 @@
 import api from './api';
 
 class AnalysisService {
-  // Analyze resume against occupation
-  async analyzeResume(resumeId, occupationCode) {
-    const response = await api.post('/analysis/analyze', {
-      resumeId,
-      occupationCode
+  // Stream analysis with SSE
+  streamAnalysis(resumeId, occupationCode, onDimensionUpdate, onComplete, onError) {
+    const baseURL = api.defaults.baseURL || '';
+    const token = localStorage.getItem('token');
+    
+    // Create EventSource for SSE streaming
+    const url = `${baseURL}/analysis/stream/${resumeId}/${occupationCode}`;
+    const eventSource = new EventSource(url, {
+      withCredentials: true,
+      headers: token ? { 'Authorization': `Bearer ${token}` } : {}
     });
-    return response.data;
+    
+    // Handle connection
+    eventSource.addEventListener('connected', (event) => {
+      console.log('SSE analysis connected:', JSON.parse(event.data));
+    });
+    
+    // Handle dimension updates
+    eventSource.addEventListener('dimension_update', (event) => {
+      const { dimension, scores, cached } = JSON.parse(event.data);
+      if (onDimensionUpdate) {
+        onDimensionUpdate(dimension, scores, cached);
+      }
+    });
+    
+    // Handle completion
+    eventSource.addEventListener('completed', (event) => {
+      const analysisData = JSON.parse(event.data);
+      if (onComplete) {
+        onComplete(analysisData);
+      }
+      eventSource.close();
+    });
+    
+    // Handle errors
+    eventSource.addEventListener('error', (event) => {
+      if (event.data) {
+        const errorData = JSON.parse(event.data);
+        if (onError) {
+          onError(errorData.error);
+        }
+      }
+      eventSource.close();
+    });
+    
+    // Handle connection errors
+    eventSource.onerror = (error) => {
+      console.error('SSE analysis connection error:', error);
+      if (onError) {
+        onError('Connection lost. Please try again.');
+      }
+      eventSource.close();
+    };
+    
+    // Return cleanup function
+    return () => {
+      eventSource.close();
+    };
   }
   
   // Compare specific dimension
@@ -97,6 +148,7 @@ class AnalysisService {
   formatDimensionScores(dimensionScores) {
     const dimensions = ['tasks', 'skills', 'education', 'workActivities', 'knowledge', 'tools'];
     return dimensions.map(dim => ({
+      key: dim,  // Original key for filtering
       dimension: dim.charAt(0).toUpperCase() + dim.slice(1).replace(/([A-Z])/g, ' $1'),
       score: dimensionScores[dim]?.score || 0,
       fullMark: 100

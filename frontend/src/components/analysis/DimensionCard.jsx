@@ -1,13 +1,23 @@
-import { useState } from 'react';
-import { ChevronDown, ChevronUp, CheckCircle, XCircle } from 'lucide-react';
+import { CheckCircle, XCircle, AlertCircle, AlertTriangle, Info } from 'lucide-react';
 
 function DimensionCard({ dimension, data }) {
-  const [isExpanded, setIsExpanded] = useState(false);
-  
   const formatDimensionName = (name) => {
     return name.charAt(0).toUpperCase() + 
            name.slice(1).replace(/([A-Z])/g, ' $1').trim();
   };
+  
+  // Determine gap priority
+  const getGapPriority = () => {
+    if (data.score < 50 && ['tasks', 'skills'].includes(dimension)) {
+      return { level: 'critical', icon: AlertCircle, color: 'text-danger-600', bgColor: 'bg-danger-50' };
+    } else if (data.score < 70 && ['education', 'tools', 'workActivities'].includes(dimension)) {
+      return { level: 'important', icon: AlertTriangle, color: 'text-warning-600', bgColor: 'bg-warning-50' };
+    } else {
+      return { level: 'nice-to-have', icon: Info, color: 'text-primary-600', bgColor: 'bg-primary-50' };
+    }
+  };
+  
+  const gapPriority = data.gaps && data.gaps.length > 0 ? getGapPriority() : null;
   
   const getScoreColor = (score) => {
     if (score >= 70) return 'bg-success-500';
@@ -23,9 +33,10 @@ function DimensionCard({ dimension, data }) {
   
   return (
     <div className="card">
+      {/* Header with dimension name and score */}
       <div className="flex items-center justify-between mb-4">
         <h4 className="text-lg font-semibold text-gray-900">
-          {formatDimensionName(dimension)}
+          O*NET Occupation {formatDimensionName(dimension)} Overlap
         </h4>
         <span className={`text-2xl font-bold ${getScoreTextColor(data.score)}`}>
           {data.score}%
@@ -41,93 +52,83 @@ function DimensionCard({ dimension, data }) {
       </div>
       
       {/* Summary Stats */}
-      <div className="grid grid-cols-2 gap-4 mb-4">
-        <div className="text-center p-3 bg-success-50 rounded-lg">
-          <CheckCircle className="h-5 w-5 text-success-600 mx-auto mb-1" />
-          <p className="text-2xl font-bold text-success-700">
-            {data.matches?.length || 0}
-          </p>
-          <p className="text-xs text-success-600">Matches</p>
+      <div className="flex items-center gap-6 mb-6">
+        <div className="flex items-center gap-2">
+          <CheckCircle className="h-5 w-5 text-success-600" />
+          <span className="text-sm font-medium text-gray-700">
+            Matches: <span className="font-bold text-success-700">{data.matches?.length || 0}</span>
+          </span>
         </div>
-        
-        <div className="text-center p-3 bg-danger-50 rounded-lg">
-          <XCircle className="h-5 w-5 text-danger-600 mx-auto mb-1" />
-          <p className="text-2xl font-bold text-danger-700">
-            {data.gaps?.length || 0}
-          </p>
-          <p className="text-xs text-danger-600">Gaps</p>
+        <div className="flex items-center gap-2">
+          <XCircle className="h-5 w-5 text-danger-600" />
+          <span className="text-sm font-medium text-gray-700">
+            Gaps: <span className="font-bold text-danger-700">{data.gaps?.length || 0}</span>
+          </span>
+          {gapPriority && (
+            <span className={`px-2 py-0.5 text-xs font-medium rounded-full ${
+              gapPriority.level === 'critical' ? 'bg-danger-100 text-danger-800' :
+              gapPriority.level === 'important' ? 'bg-warning-100 text-warning-800' :
+              'bg-primary-100 text-primary-800'
+            }`}>
+              {gapPriority.level === 'critical' ? 'Critical' :
+               gapPriority.level === 'important' ? 'Important' :
+               'Nice to Have'}
+            </span>
+          )}
         </div>
       </div>
       
-      {/* Expandable Details */}
-      <button
-        onClick={() => setIsExpanded(!isExpanded)}
-        className="w-full flex items-center justify-between text-sm text-gray-600 hover:text-gray-900 transition-colors"
-      >
-        <span>View Details</span>
-        {isExpanded ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
-      </button>
+      {/* Side-by-side Matches and Gaps */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 pt-4 border-t border-gray-200">
+        {/* Matches Column */}
+        <div>
+          {data.matches && data.matches.length > 0 ? (
+            <div className="space-y-2">
+              {data.matches.map((match, idx) => (
+                <div key={idx} className="flex items-start">
+                  <CheckCircle className="h-3 w-3 text-success-500 mr-2 mt-0.5 flex-shrink-0" />
+                  <p className="text-sm text-gray-600">{match}</p>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <p className="text-sm text-gray-400 italic">No matches found</p>
+          )}
+        </div>
+        
+        {/* Gaps Column */}
+        <div>
+          {data.gaps && data.gaps.length > 0 ? (
+            <div className="space-y-2">
+              {data.gaps.map((gap, idx) => {
+                const GapIcon = gapPriority?.icon || XCircle;
+                const iconColor = gapPriority?.color || 'text-danger-500';
+                return (
+                  <div key={idx} className="flex items-start">
+                    <GapIcon className={`h-3 w-3 ${iconColor} mr-2 mt-0.5 flex-shrink-0`} />
+                    <p className="text-sm text-gray-600">{gap}</p>
+                  </div>
+                );
+              })}
+            </div>
+          ) : (
+            <p className="text-sm text-gray-400 italic">No gaps identified</p>
+          )}
+        </div>
+      </div>
       
-      {isExpanded && (
-        <div className="mt-4 pt-4 border-t border-gray-200 space-y-4">
-          {/* Matches */}
-          {data.matches && data.matches.length > 0 && (
-            <div>
-              <h5 className="text-sm font-medium text-gray-700 mb-2">
-                ✓ Matches ({data.matches.length})
-              </h5>
-              <div className="space-y-1">
-                {data.matches.slice(0, 5).map((match, idx) => (
-                  <div key={idx} className="flex items-start">
-                    <CheckCircle className="h-3 w-3 text-success-500 mr-2 mt-0.5 flex-shrink-0" />
-                    <p className="text-xs text-gray-600">{match}</p>
-                  </div>
-                ))}
-                {data.matches.length > 5 && (
-                  <p className="text-xs text-gray-400 ml-5">
-                    +{data.matches.length - 5} more matches
-                  </p>
-                )}
-              </div>
-            </div>
-          )}
-          
-          {/* Gaps */}
-          {data.gaps && data.gaps.length > 0 && (
-            <div>
-              <h5 className="text-sm font-medium text-gray-700 mb-2">
-                ✗ Gaps ({data.gaps.length})
-              </h5>
-              <div className="space-y-1">
-                {data.gaps.slice(0, 5).map((gap, idx) => (
-                  <div key={idx} className="flex items-start">
-                    <XCircle className="h-3 w-3 text-danger-500 mr-2 mt-0.5 flex-shrink-0" />
-                    <p className="text-xs text-gray-600">{gap}</p>
-                  </div>
-                ))}
-                {data.gaps.length > 5 && (
-                  <p className="text-xs text-gray-400 ml-5">
-                    +{data.gaps.length - 5} more gaps
-                  </p>
-                )}
-              </div>
-            </div>
-          )}
-          
-          {/* Special Cases */}
-          {dimension === 'education' && data.meetsRequirements !== undefined && (
-            <div className={`p-3 rounded-lg ${
-              data.meetsRequirements ? 'bg-success-50' : 'bg-warning-50'
-            }`}>
-              <p className={`text-sm font-medium ${
-                data.meetsRequirements ? 'text-success-800' : 'text-warning-800'
-              }`}>
-                {data.meetsRequirements 
-                  ? '✓ Meets education requirements'
-                  : '⚠ Additional education may be beneficial'}
-              </p>
-            </div>
-          )}
+      {/* Special Cases for Education */}
+      {dimension === 'education' && data.meetsRequirements !== undefined && (
+        <div className={`mt-4 p-3 rounded-lg ${
+          data.meetsRequirements ? 'bg-success-50' : 'bg-warning-50'
+        }`}>
+          <p className={`text-sm font-medium ${
+            data.meetsRequirements ? 'text-success-800' : 'text-warning-800'
+          }`}>
+            {data.meetsRequirements 
+              ? '✓ Meets education requirements'
+              : '⚠ Additional education may be beneficial'}
+          </p>
         </div>
       )}
     </div>

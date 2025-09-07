@@ -10,18 +10,11 @@ class AnalysisService {
         this.cacheTimeout = 3600000; // 1 hour
     }
 
-    async analyzeResumeAgainstOccupation(resumeId, occupationCode) {
+    async analyzeResumeStream(resumeId, occupationCode, onDimensionUpdate) {
         const startTime = Date.now();
         
         try {
-            const cacheKey = `${resumeId}_${occupationCode}`;
-            const cached = this.getCachedAnalysis(cacheKey);
-            if (cached) {
-                console.log(`Returning cached analysis for ${cacheKey}`);
-                return cached;
-            }
-
-            console.log(`Starting analysis: Resume ${resumeId} vs Occupation ${occupationCode}`);
+            console.log(`Starting streaming analysis: Resume ${resumeId} vs Occupation ${occupationCode}`);
 
             const resumeData = await this.getResumeData(resumeId);
             if (!resumeData) {
@@ -33,9 +26,11 @@ class AnalysisService {
                 throw new Error(`Occupation ${occupationCode} not found`);
             }
 
-            const dimensionScores = await this.performDimensionComparisons(
+            // Perform dimension comparisons with streaming updates
+            const dimensionScores = await this.performDimensionComparisonsStream(
                 resumeData, 
-                occupationData
+                occupationData,
+                onDimensionUpdate
             );
 
             const overallScore = scoreCalculator.calculateOverallScore(dimensionScores);
@@ -66,13 +61,14 @@ class AnalysisService {
                 status: 'completed'
             };
 
+            const cacheKey = `${resumeId}_${occupationCode}`;
             this.cacheAnalysis(cacheKey, analysis);
 
-            console.log(`Analysis completed in ${processingTime}ms. Overall score: ${overallScore}`);
+            console.log(`Streaming analysis completed in ${processingTime}ms. Overall score: ${overallScore}`);
             return analysis;
 
         } catch (error) {
-            console.error('Error during analysis:', error);
+            console.error('Error during streaming analysis:', error);
             throw error;
         }
     }
@@ -125,39 +121,67 @@ class AnalysisService {
         }
     }
 
-    async performDimensionComparisons(resumeData, occupationData) {
-        console.log('Performing dimension-by-dimension comparisons...');
+    async performDimensionComparisonsStream(resumeData, occupationData, onDimensionUpdate) {
+        console.log('Performing streaming dimension-by-dimension comparisons...');
         
-        const comparisons = await Promise.allSettled([
-            this.compareTasksDimension(resumeData, occupationData),
-            this.compareSkillsDimension(resumeData, occupationData),
-            this.compareEducationDimension(resumeData, occupationData),
-            this.compareWorkActivitiesDimension(resumeData, occupationData),
-            this.compareKnowledgeDimension(resumeData, occupationData),
-            this.compareToolsDimension(resumeData, occupationData)
-        ]);
-
         const dimensionScores = {};
+        const dimensions = ['tasks', 'skills', 'education', 'workActivities', 'knowledge', 'tools'];
         
-        comparisons.forEach((result, index) => {
-            const dimensions = ['tasks', 'skills', 'education', 'workActivities', 'knowledge', 'tools'];
-            const dimension = dimensions[index];
-            
-            if (result.status === 'fulfilled') {
-                dimensionScores[dimension] = result.value;
-            } else {
-                console.error(`Failed to compare ${dimension}:`, result.reason);
+        // Process dimensions sequentially for streaming
+        for (const dimension of dimensions) {
+            try {
+                let result;
+                
+                switch (dimension) {
+                    case 'tasks':
+                        result = await this.compareTasksDimension(resumeData, occupationData);
+                        break;
+                    case 'skills':
+                        result = await this.compareSkillsDimension(resumeData, occupationData);
+                        break;
+                    case 'education':
+                        result = await this.compareEducationDimension(resumeData, occupationData);
+                        break;
+                    case 'workActivities':
+                        result = await this.compareWorkActivitiesDimension(resumeData, occupationData);
+                        break;
+                    case 'knowledge':
+                        result = await this.compareKnowledgeDimension(resumeData, occupationData);
+                        break;
+                    case 'tools':
+                        result = await this.compareToolsDimension(resumeData, occupationData);
+                        break;
+                }
+                
+                dimensionScores[dimension] = result;
+                
+                // Stream the dimension update
+                if (onDimensionUpdate) {
+                    onDimensionUpdate(dimension, result);
+                }
+                
+                // Add small delay between dimensions for better UX
+                await new Promise(resolve => setTimeout(resolve, 500));
+                
+            } catch (error) {
+                console.error(`Failed to compare ${dimension}:`, error);
                 dimensionScores[dimension] = {
                     score: 0,
-                    error: result.reason.message,
+                    error: error.message,
                     matches: [],
                     gaps: []
                 };
+                
+                // Still send update for failed dimension
+                if (onDimensionUpdate) {
+                    onDimensionUpdate(dimension, dimensionScores[dimension]);
+                }
             }
-        });
+        }
 
         return dimensionScores;
     }
+
 
     async compareTasksDimension(resumeData, occupationData) {
         if (!occupationData.tasks || occupationData.tasks.length === 0) {

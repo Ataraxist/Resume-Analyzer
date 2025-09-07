@@ -6,14 +6,14 @@ import { requireCredits, consumeCredits } from '../middleware/creditMiddleware.j
 
 const router = express.Router();
 
-// Main analysis endpoint - supports both guests and authenticated users with credit checks
-router.post('/analyze',
+// SSE streaming analysis endpoint - supports both guests and authenticated users with credit checks
+router.get('/stream/:resumeId/:occupationCode',
     optionalAuthMiddleware,
     trackGuestSession,
     requireIdentity,
     requireCredits,  // Check if user has credits before proceeding
     consumeCredits,  // Consume credits after successful analysis
-    (req, res) => analysisController.analyzeResume(req, res)
+    (req, res) => analysisController.streamAnalysis(req, res)
 );
 
 // Compare specific dimension - supports both guests and authenticated users

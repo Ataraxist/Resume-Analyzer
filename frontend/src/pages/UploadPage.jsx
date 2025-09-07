@@ -199,7 +199,7 @@ function UploadPage() {
   
   const handleContinue = () => {
     if (resumeId && selectedOccupation) {
-      // Go directly to analysis with both resume and job selected
+      // Go to analysis with all necessary data for streaming
       navigate('/analysis', { 
         state: { 
           resumeId, 

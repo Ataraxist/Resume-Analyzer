@@ -42,12 +42,30 @@ class AnalysisModel {
             const analysis = await database.get(sql, [id]);
             
             if (analysis) {
-                analysis.dimension_scores = JSON.parse(analysis.dimension_scores || '{}');
-                analysis.detailed_gaps = JSON.parse(analysis.detailed_gaps || '{}');
-                analysis.recommendations = JSON.parse(analysis.recommendations || '[]');
+                // Transform snake_case to camelCase for frontend consistency
+                return {
+                    id: analysis.id,
+                    resumeId: analysis.resume_id,
+                    occupationCode: analysis.occupation_code,
+                    occupationTitle: analysis.occupation_title,
+                    analysisDate: analysis.analysis_date,
+                    overallFitScore: analysis.overall_fit_score,
+                    fitCategory: analysis.fit_category,
+                    dimensionScores: JSON.parse(analysis.dimension_scores || '{}'),
+                    scoreBreakdown: JSON.parse(analysis.score_breakdown || '{}'),
+                    detailedGaps: JSON.parse(analysis.detailed_gaps || '{}'),
+                    recommendations: JSON.parse(analysis.recommendations || '[]'),
+                    improvementImpact: JSON.parse(analysis.improvement_impact || '{}'),
+                    timeToQualify: analysis.time_to_qualify,
+                    processingTimeMs: analysis.processing_time_ms,
+                    status: analysis.status,
+                    errorMessage: analysis.error_message,
+                    createdAt: analysis.created_at,
+                    updatedAt: analysis.updated_at
+                };
             }
             
-            return analysis;
+            return null;
         } catch (error) {
             console.error('Error fetching analysis:', error);
             throw error;
@@ -107,12 +125,30 @@ class AnalysisModel {
             const analysis = await database.get(sql, [resumeId, occupationCode]);
             
             if (analysis) {
-                analysis.dimension_scores = JSON.parse(analysis.dimension_scores || '{}');
-                analysis.detailed_gaps = JSON.parse(analysis.detailed_gaps || '{}');
-                analysis.recommendations = JSON.parse(analysis.recommendations || '[]');
+                // Transform snake_case to camelCase for frontend consistency
+                return {
+                    id: analysis.id,
+                    resumeId: analysis.resume_id,
+                    occupationCode: analysis.occupation_code,
+                    occupationTitle: analysis.occupation_title,
+                    analysisDate: analysis.analysis_date,
+                    overallFitScore: analysis.overall_fit_score,
+                    fitCategory: analysis.fit_category,
+                    dimensionScores: JSON.parse(analysis.dimension_scores || '{}'),
+                    scoreBreakdown: JSON.parse(analysis.score_breakdown || '{}'),
+                    detailedGaps: JSON.parse(analysis.detailed_gaps || '{}'),
+                    recommendations: JSON.parse(analysis.recommendations || '[]'),
+                    improvementImpact: JSON.parse(analysis.improvement_impact || '{}'),
+                    timeToQualify: analysis.time_to_qualify,
+                    processingTimeMs: analysis.processing_time_ms,
+                    status: analysis.status,
+                    errorMessage: analysis.error_message,
+                    createdAt: analysis.created_at,
+                    updatedAt: analysis.updated_at
+                };
             }
             
-            return analysis;
+            return null;
         } catch (error) {
             console.error('Error fetching latest analysis:', error);
             throw error;

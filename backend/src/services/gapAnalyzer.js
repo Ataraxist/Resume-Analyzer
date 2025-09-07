@@ -195,7 +195,6 @@ class GapAnalyzer {
             
             recommendations.push({
                 action: `Learn ${skillName}`,
-                resources: this.getSkillResources(skillName),
                 timeframe: this.estimateTimeframe(skillName),
                 impact: importance
             });
@@ -211,7 +210,6 @@ class GapAnalyzer {
             const gap = educationData.requiredLevel;
             recommendations.push({
                 action: `Consider pursuing ${gap}`,
-                resources: ['Online degree programs', 'Professional certifications', 'Bootcamps'],
                 timeframe: 'Long-term (6-24 months)',
                 impact: 'critical'
             });
@@ -221,7 +219,6 @@ class GapAnalyzer {
             educationData.gaps.forEach(gap => {
                 recommendations.push({
                     action: `Study ${gap}`,
-                    resources: ['Coursera', 'edX', 'LinkedIn Learning'],
                     timeframe: 'Short to medium-term',
                     impact: 'medium'
                 });
@@ -249,7 +246,6 @@ class GapAnalyzer {
             
             return {
                 action: `Gain hands-on experience with ${toolName}`,
-                resources: this.getToolResources(toolName),
                 timeframe: 'Short-term (1-3 months)',
                 impact: importance
             };
@@ -270,7 +266,6 @@ class GapAnalyzer {
             
             recommendations.push({
                 action: `Seek opportunities to gain experience in: ${taskName}`,
-                resources: ['Volunteer projects', 'Freelance work', 'Internal projects', 'Side projects'],
                 timeframe: 'Medium-term (3-6 months)',
                 impact: importance
             });
@@ -297,7 +292,6 @@ class GapAnalyzer {
             
             return {
                 action: `Study ${areaName}`,
-                resources: ['Online courses', 'Books', 'Industry publications', 'Webinars'],
                 timeframe: 'Short to medium-term',
                 impact: importance
             };
@@ -322,47 +316,12 @@ class GapAnalyzer {
             
             return {
                 action: `Develop skills in: ${activityName}`,
-                resources: ['On-the-job training', 'Leadership workshops', 'Professional coaching', 'Mentorship programs'],
                 timeframe: 'Medium-term (3-6 months)',
                 impact: importance
             };
         });
     }
 
-    getSkillResources(skill) {
-        const skillLower = skill.toLowerCase();
-        
-        if (skillLower.includes('python') || skillLower.includes('javascript') || 
-            skillLower.includes('java') || skillLower.includes('programming')) {
-            return ['Codecademy', 'freeCodeCamp', 'Udemy', 'Coursera'];
-        }
-        
-        if (skillLower.includes('cloud') || skillLower.includes('aws') || 
-            skillLower.includes('azure') || skillLower.includes('gcp')) {
-            return ['Cloud provider documentation', 'A Cloud Guru', 'Linux Academy', 'Official certifications'];
-        }
-        
-        if (skillLower.includes('data') || skillLower.includes('analytics') || 
-            skillLower.includes('sql')) {
-            return ['DataCamp', 'Kaggle Learn', 'Mode Analytics', 'SQLZoo'];
-        }
-        
-        return ['LinkedIn Learning', 'Coursera', 'Udemy', 'YouTube tutorials'];
-    }
-
-    getToolResources(tool) {
-        const toolLower = tool.toLowerCase();
-        
-        if (toolLower.includes('docker') || toolLower.includes('kubernetes')) {
-            return ['Docker documentation', 'Kubernetes.io', 'KodeKloud', 'Play with Docker'];
-        }
-        
-        if (toolLower.includes('git')) {
-            return ['GitHub Learning Lab', 'Atlassian Git tutorials', 'Pro Git book'];
-        }
-        
-        return ['Official documentation', 'YouTube tutorials', 'Hands-on labs', 'Free tier accounts'];
-    }
 
     estimateTimeframe(skill) {
         const complexSkills = ['machine learning', 'artificial intelligence', 'blockchain', 

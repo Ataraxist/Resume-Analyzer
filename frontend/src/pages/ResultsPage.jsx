@@ -13,7 +13,11 @@ function ResultsPage() {
   
   useEffect(() => {
     const fetchAnalysis = async () => {
-      if (analysisData) return;
+      // Skip if we already have the data from navigation state
+      if (analysisData) {
+        setIsLoading(false);
+        return;
+      }
       
       try {
         setIsLoading(true);
@@ -27,7 +31,9 @@ function ResultsPage() {
       }
     };
     
-    fetchAnalysis();
+    if (analysisId) {
+      fetchAnalysis();
+    }
   }, [analysisId, analysisData]);
   
   if (isLoading) {
@@ -59,9 +65,11 @@ function ResultsPage() {
   return (
     <div className="max-w-7xl mx-auto">
       <div className="mb-8">
-        <h1 className="text-3xl font-bold text-gray-900 mb-2">Analysis Results</h1>
-        <p className="text-lg text-gray-600">
-          {analysisData.occupationTitle} Analysis
+        <h1 className="text-3xl font-bold text-gray-900 mb-1">
+          {analysisData.occupationTitle} Resume Fit Analysis
+        </h1>
+        <p className="text-sm text-gray-500">
+          {analysisData.occupationCode}
         </p>
       </div>
       
