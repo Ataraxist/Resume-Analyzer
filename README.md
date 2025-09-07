@@ -1,97 +1,233 @@
 # Resume Analyzer
 
-AI-powered resume analysis against O*NET job requirements.
+An AI-powered resume analysis platform that evaluates job-resume fit using O*NET occupation data and provides actionable insights for career development.
 
-## What It Does
+## Features
 
-Upload a resume → Select a job → Get AI-powered feedback across O*NET job dimensions.
+### Core Functionality
+- **Smart Resume Parsing**: Extract structured data from PDF, DOCX, and Google Docs resumes using AI
+- **O*NET Job Matching**: Compare resumes against 1,000+ standardized occupation profiles
+- **Real-time Streaming Analysis**: Watch your analysis progress with live updates via SSE
+- **Multi-dimensional Scoring**: Evaluate fit across 6 key dimensions:
+  - Tasks & Responsibilities
+  - Skills & Abilities
+  - Educational Requirements
+  - Work Activities
+  - Knowledge Areas
+  - Tools & Technology
+- **Actionable Recommendations**: Get specific guidance for skill development and career growth
+- **Credit-based System**: Fair usage model with secure Stripe integration
 
-## O*NET-Centric MVP Implementation Plan
+### User Experience
+- **Interactive Visualizations**: Dynamic radar charts showing dimensional strengths
+- **Progressive Loading**: See results as they're calculated, no waiting for full analysis
+- **Smart Caching**: Instant results for repeated analyses
+- **Mobile Responsive**: Full functionality across all devices
+- **Session Management**: Secure authentication with JWT tokens
 
-### Core Architecture
-- **Backend**: Node.js/Express (simple, no TypeScript needed)
-- **Caching**: SQLite for O*NET data (simple, file-based)
-- **Frontend**: React with clean UI for results display
+## Tech Stack
 
-### Implementation Phases
+### Frontend
+- **React 19** with Vite for blazing-fast development
+- **TailwindCSS** for modern, responsive styling
+- **Recharts** for interactive data visualizations
+- **React Query** for efficient data fetching
+- **React Hook Form** for form management
+- **Framer Motion** for smooth animations
 
-**Phase 1: O*NET Integration (Day 1-2)**
-- Set up O*NET API client with credentials
-- Fetch occupation list (~1000 jobs)
-- Implement parallel fetching for job details:
-  - Tasks, Technology Skills, Tools Used
-  - Work Activities, Knowledge, Skills
-  - Abilities, Education requirements
-- Cache everything in SQLite after fetch
+### Backend
+- **Node.js** with Express.js
+- **PostgreSQL** for robust data storage
+- **Redis** for caching and session management
+- **OpenAI GPT-4** for intelligent resume parsing
+- **Server-Sent Events** for real-time streaming
+- **Stripe** for payment processing
+- **JWT** for secure authentication
 
-**Phase 2: Resume Processing & Structured Extraction (Day 2-3)**
-- File upload (PDF, DOCX, TXT)
-- Text extraction from documents
-- AI-powered parsing to structured format:
-  - Personal information (contact details)
-  - Work experiences (companies, roles, responsibilities, achievements)
-  - Skills (technical, soft skills, tools, languages)
-  - Education (degrees, institutions, dates, GPA)
-  - Projects (descriptions, technologies used)
-  - Certifications & awards
-- Store structured data mapped to O*NET dimensions:
-  - Experience → Tasks, Work Activities
-  - Skills → Skills, Technology Skills, Tools Used
-  - Education → Education Requirements, Job Zone
-  - Projects → Technology Skills, Tasks
+## Getting Started
 
-**Phase 3: Dimension-by-Dimension Analysis Engine (Day 3-4)**
-- User selects specific O*NET occupation (e.g., Software Developer)
-- Fetch complete O*NET data for occupation (150+ data points)
-- Run focused AI comparisons per dimension:
-  - Compare resume.experience → onet.tasks (20+ tasks)
-  - Compare resume.skills → onet.skills (50+ skills)
-  - Compare resume.education → onet.education_requirements
-  - Compare resume.skills → onet.technology_skills (10-20 tools)
-  - Compare resume.experience → onet.work_activities (20+ activities)
-  - Compare resume.knowledge → onet.knowledge (30+ areas)
-  - Compare resume.abilities → onet.abilities (20+ abilities)
-- Generate specific feedback per dimension:
-  - Individual scores for each O*NET data point
-  - Specific gaps identified (e.g., "Missing: AWS, Docker, Kubernetes")
-  - Actionable recommendations per category
-  - Overall fit percentage
-- Return structured analysis with 1 score per O*NET dimension
+### Prerequisites
+- Node.js 18+ and npm
+- PostgreSQL 14+
+- Redis 6+
+- OpenAI API key
+- Stripe account (for payments)
 
-**Phase 4: Frontend (Day 4-5)**
-- O*NET job search/selection
-- Resume upload
-- Results display with:
-  - Score for each O*NET dimension
-  - Specific feedback per category
-  - Overall fit assessment
-  - Recommendations for improvement
+### Installation
 
-### What Makes This Valuable
-- Uses real O*NET job taxonomy (1000+ real jobs)
-- Provides structured feedback across 7-8 professional dimensions
-- Gives actionable insights based on actual job requirements
-- Creates standardized assessments that mirror government job data
+1. **Clone the repository**
+```bash
+git clone https://github.com/yourusername/resume-analyzer.git
+cd resume-analyzer
+```
+
+2. **Set up the backend**
+```bash
+cd backend
+npm install
+
+# Create .env file with required variables
+cp .env.example .env
+# Edit .env with your configuration
+
+# Set up database
+psql -U postgres -f src/db/schema.sql
+
+# Start the server
+npm run dev
+```
+
+3. **Set up the frontend**
+```bash
+cd frontend
+npm install
+
+# Create .env file
+cp .env.example .env
+# Edit .env with your API endpoint
+
+# Start the development server
+npm run dev
+```
+
+4. **Access the application**
+- Frontend: http://localhost:5173
+- Backend API: http://localhost:3001
 
 ## Environment Variables
 
+### Backend (.env)
 ```env
-OPENAI_API_KEY=your_key_here
-ONET_USERNAME=your_username
-ONET_PASSWORD=your_password
-PORT=3000
+# Database
+DATABASE_URL=postgresql://user:password@localhost:5432/resume_analyzer
+REDIS_URL=redis://localhost:6379
+
+# Authentication
+JWT_SECRET=your-secret-key
+JWT_EXPIRES_IN=7d
+
+# APIs
+OPENAI_API_KEY=sk-...
+STRIPE_SECRET_KEY=sk_...
+STRIPE_WEBHOOK_SECRET=whsec_...
+
+# Server
+PORT=3001
+NODE_ENV=development
 ```
 
-## Quick Start
+### Frontend (.env)
+```env
+VITE_API_URL=http://localhost:3001
+```
+
+## Usage
+
+1. **Sign Up/Login**: Create an account or login to access the platform
+2. **Upload Resume**: Upload your resume in PDF, DOCX, or import from Google Docs
+3. **Select Occupation**: Search and select target job from O*NET database
+4. **View Analysis**: Watch real-time analysis with progressive results
+5. **Review Insights**: Explore dimensional scores and recommendations
+6. **Take Action**: Follow personalized recommendations for improvement
+
+## API Documentation
+
+### Key Endpoints
+
+#### Authentication
+- `POST /api/auth/register` - Create new account
+- `POST /api/auth/login` - Login user
+- `POST /api/auth/logout` - Logout user
+
+#### Resumes
+- `POST /api/resumes/upload` - Upload resume file
+- `POST /api/resumes/parse` - Parse resume with AI
+- `GET /api/resumes` - List user's resumes
+
+#### Analysis
+- `GET /api/analysis/stream/:resumeId/:occupationCode` - Stream analysis (SSE)
+- `GET /api/analysis/:id` - Get completed analysis
+- `GET /api/analysis/search` - Search analyses
+
+#### Credits
+- `GET /api/credits/balance` - Check credit balance
+- `POST /api/credits/purchase` - Purchase credits
+
+## Project Structure
+
+```
+resume-analyzer/
+├── backend/
+│   ├── src/
+│   │   ├── controllers/    # Request handlers
+│   │   ├── models/         # Database models
+│   │   ├── routes/         # API routes
+│   │   ├── services/       # Business logic
+│   │   ├── middleware/     # Auth, validation
+│   │   └── db/            # Database schema
+│   └── server.js          # Entry point
+│
+├── frontend/
+│   ├── src/
+│   │   ├── components/    # React components
+│   │   ├── pages/         # Page components
+│   │   ├── services/      # API clients
+│   │   ├── contexts/      # React contexts
+│   │   └── utils/         # Utilities
+│   └── index.html         # Entry point
+│
+└── README.md
+```
+
+## Contributing
+
+We welcome contributions! Please follow these steps:
+
+1. Fork the repository
+2. Create a feature branch (`git checkout -b feature/amazing-feature`)
+3. Commit your changes (`git commit -m 'Add amazing feature'`)
+4. Push to the branch (`git push origin feature/amazing-feature`)
+5. Open a Pull Request
+
+## Testing
 
 ```bash
-# Backend
+# Backend tests
 cd backend
-npm install
-npm run dev
+npm test
 
-# Frontend
+# Frontend tests
 cd frontend
-npm install
-npm run dev
+npm test
 ```
+
+## Deployment
+
+### Production Considerations
+- Use environment variables for all sensitive data
+- Enable HTTPS with SSL certificates
+- Set up proper CORS policies
+- Configure rate limiting
+- Implement error monitoring (e.g., Sentry)
+- Set up database backups
+- Use PM2 or similar for process management
+
+## License
+
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+
+## Acknowledgments
+
+- O*NET for comprehensive occupation data
+- OpenAI for powerful resume parsing capabilities
+- The open-source community for amazing tools and libraries
+
+## Support
+
+For issues, questions, or suggestions:
+- Open an issue on GitHub
+- Contact: support@resumeanalyzer.com
+
+---
+
+Built with ❤️ by the Resume Analyzer Team
