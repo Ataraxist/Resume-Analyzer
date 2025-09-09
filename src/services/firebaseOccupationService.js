@@ -31,7 +31,6 @@ class FirebaseOccupationService {
       const metadataDoc = await getDoc(doc(db, 'system', 'sync_metadata'));
       
       if (!metadataDoc.exists()) {
-        console.log('No sync metadata found, triggering initial sync');
         this.triggerBackgroundSync();
         return;
       }
@@ -40,7 +39,6 @@ class FirebaseOccupationService {
       const lastSync = metadata.last_sync ? new Date(metadata.last_sync) : null;
       
       if (!lastSync) {
-        console.log('No last sync date found, triggering sync');
         this.triggerBackgroundSync();
         return;
       }
@@ -49,11 +47,9 @@ class FirebaseOccupationService {
       const daysSinceSync = (Date.now() - lastSync.getTime()) / (1000 * 60 * 60 * 24);
       
       if (daysSinceSync > this.SYNC_STALE_DAYS) {
-        console.log(`Data is ${Math.floor(daysSinceSync)} days old, triggering background sync`);
         this.triggerBackgroundSync();
       }
     } catch (error) {
-      console.error('Error checking sync status:', error);
       // Don't block the user experience if sync check fails
     }
   }
@@ -66,21 +62,15 @@ class FirebaseOccupationService {
       
       // Fire and forget - don't await
       fetchOccupationsListFunction().catch(err => {
-        console.error('Background sync failed:', err);
+        // Background sync failed silently
       });
     } catch (error) {
-      console.error('Error triggering background sync:', error);
+      // Error triggering background sync
     }
   }
 
   // Search occupations
   async searchOccupations(searchQuery = '', filters = {}, limitCount = 20, offset = 0) {
-    console.log('[firebaseOccupationService] searchOccupations called with:', {
-      searchQuery,
-      filters,
-      limitCount,
-      offset
-    });
     
     // Check sync status on first search (non-blocking)
     this.checkAndSyncIfNeeded();
@@ -96,15 +86,10 @@ class FirebaseOccupationService {
         filters
       };
       
-      console.log('[firebaseOccupationService] Calling searchOccupationsFunction with payload:', payload);
-      
       const result = await searchOccupationsFunction(payload);
-      
-      console.log('[firebaseOccupationService] searchOccupationsFunction returned:', result.data);
       
       return result.data;
     } catch (error) {
-      console.error('Error searching occupations:', error);
       throw error;
     }
   }
@@ -146,7 +131,6 @@ class FirebaseOccupationService {
         hasMore: snapshot.docs.length === limitCount
       };
     } catch (error) {
-      console.error('Error fetching occupations:', error);
       throw error;
     }
   }
@@ -181,11 +165,9 @@ class FirebaseOccupationService {
         
         return occupationData;
       } else {
-        console.error(`Occupation not found with code: ${occupationCode}`);
         throw new Error(`Occupation not found: ${occupationCode}`);
       }
     } catch (error) {
-      console.error('Error fetching occupation:', error);
       throw error;
     }
   }
@@ -226,10 +208,8 @@ class FirebaseOccupationService {
         timestamp: Date.now()
       });
       
-      console.log(`Fetched ${occupations.length} occupation titles`);
       return occupations;
     } catch (error) {
-      console.error('Error fetching all occupation titles:', error);
       // Return a fallback set if the fetch fails
       return [
         { code: '15-1252', title: 'Software Developers' },
@@ -259,7 +239,6 @@ class FirebaseOccupationService {
       }
       return null;
     } catch (error) {
-      console.error('Error fetching job zone details:', error);
       return null;
     }
   }
@@ -272,12 +251,10 @@ class FirebaseOccupationService {
       const cached = this.cache.get(cacheKey);
       
       if (cached && Date.now() - cached.timestamp < this.cacheTimeout) {
-        console.log('Returning cached occupation details for', occupationCode);
         return cached.data;
       }
       
       // Call Firebase function to get occupation details
-      console.log('Fetching occupation details from Firebase function for', occupationCode);
       const getOccupationDetailsFunction = FirebaseFunctionsFactory.getCallable('getOccupationDetailsFunction');
       
       const result = await getOccupationDetailsFunction({ code: occupationCode });
@@ -338,7 +315,6 @@ class FirebaseOccupationService {
       
       return formattedDetails;
     } catch (error) {
-      console.error('Error fetching occupation details:', error);
       
       // Fallback: try to get basic data from Firestore
       try {
@@ -357,7 +333,6 @@ class FirebaseOccupationService {
           jobZone: null
         };
       } catch (fallbackError) {
-        console.error('Fallback also failed:', fallbackError);
         throw error;
       }
     }
@@ -365,8 +340,8 @@ class FirebaseOccupationService {
 
   // Get subcollection data (deprecated - now using Firebase function)
   // Keeping for backward compatibility but returns empty array
-  async getSubcollection(occupationCode, subcollectionName) {
-    console.warn(`getSubcollection is deprecated. Use getOccupationDetails instead.`);
+  async getSubcollection(_occupationCode, _subcollectionName) {
+    // getSubcollection is deprecated. Use getOccupationDetails instead.
     return [];
   }
 
@@ -393,7 +368,6 @@ class FirebaseOccupationService {
       
       return occupations;
     } catch (error) {
-      console.error('Error fetching bright outlook occupations:', error);
       throw error;
     }
   }
@@ -421,7 +395,6 @@ class FirebaseOccupationService {
       
       return occupations;
     } catch (error) {
-      console.error('Error fetching rapid growth occupations:', error);
       throw error;
     }
   }

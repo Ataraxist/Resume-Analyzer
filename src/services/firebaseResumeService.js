@@ -3,7 +3,9 @@ import {
   doc, 
   getDoc, 
   getDocs, 
-  deleteDoc, 
+  deleteDoc,
+  updateDoc,
+  serverTimestamp, 
   query, 
   where, 
   orderBy, 
@@ -31,19 +33,16 @@ class FirebaseResumeService {
         ...data
       };
       
-      console.log('[FirebaseResumeService] Processing resume with streaming:', { inputType, requestData });
       
       // Try to use streaming if available
       if (resumeFunction.stream) {
         try {
-          console.log('[FirebaseResumeService] Using streaming API');
           // Call the function with streaming support
           const { stream, data: dataPromise } = await resumeFunction.stream(requestData);
           
           // Process stream chunks
           if (stream) {
             for await (const chunk of stream) {
-              console.log('[FirebaseResumeService] Received chunk:', chunk);
               if (onChunk) {
                 onChunk(chunk);
               }
@@ -52,7 +51,6 @@ class FirebaseResumeService {
           
           // Wait for and return final data
           const finalResult = await dataPromise;
-          console.log('[FirebaseResumeService] Final result:', finalResult);
           
           return {
             success: true,
@@ -60,13 +58,12 @@ class FirebaseResumeService {
             structuredData: finalResult.structuredData
           };
         } catch (streamError) {
-          console.log('[FirebaseResumeService] Streaming not supported, falling back to regular call:', streamError);
-          // Fall through to regular call
+          console.warn('Streaming not supported, falling back to regular call:', streamError.message);
+          // Fall through to regular call if streaming not supported
         }
       }
       
       // Fallback to regular call if streaming not available
-      console.log('[FirebaseResumeService] Using regular (non-streaming) API');
       const response = await resumeFunction(requestData);
       const result = response.data;
       
@@ -76,7 +73,14 @@ class FirebaseResumeService {
         structuredData: result.structuredData
       };
     } catch (error) {
-      console.error('[FirebaseResumeService] Error processing resume:', error);
+      // Enhance error message for better user feedback
+      if (error.code === 'functions/deadline-exceeded') {
+        error.message = 'Resume processing is taking longer than expected. Please try again.';
+      } else if (error.code === 'functions/unavailable') {
+        error.message = 'Resume service is temporarily unavailable. Please try again in a few moments.';
+      } else if (error.code === 'functions/internal') {
+        error.message = 'An error occurred while processing your resume. Please try again.';
+      }
       throw error;
     }
   }
@@ -108,7 +112,14 @@ class FirebaseResumeService {
         message: 'Resume uploaded and processed successfully'
       };
     } catch (error) {
-      console.error('Error uploading resume:', error);
+      // Enhance error message for better user feedback
+      if (error.code === 'functions/deadline-exceeded') {
+        error.message = 'Resume processing is taking longer than expected. Please try again.';
+      } else if (error.code === 'functions/unavailable') {
+        error.message = 'Resume service is temporarily unavailable. Please try again in a few moments.';
+      } else if (error.code === 'functions/internal') {
+        error.message = 'An error occurred while processing your resume. Please try again.';
+      }
       throw error;
     }
   }
@@ -123,7 +134,14 @@ class FirebaseResumeService {
       
       return result;
     } catch (error) {
-      console.error('Error parsing resume:', error);
+      // Enhance error message for better user feedback
+      if (error.code === 'functions/deadline-exceeded') {
+        error.message = 'Resume processing is taking longer than expected. Please try again.';
+      } else if (error.code === 'functions/unavailable') {
+        error.message = 'Resume service is temporarily unavailable. Please try again in a few moments.';
+      } else if (error.code === 'functions/internal') {
+        error.message = 'An error occurred while processing your resume. Please try again.';
+      }
       throw error;
     }
   }
@@ -138,7 +156,14 @@ class FirebaseResumeService {
       
       return result;
     } catch (error) {
-      console.error('Error importing Google Doc:', error);
+      // Enhance error message for better user feedback
+      if (error.code === 'functions/deadline-exceeded') {
+        error.message = 'Resume processing is taking longer than expected. Please try again.';
+      } else if (error.code === 'functions/unavailable') {
+        error.message = 'Resume service is temporarily unavailable. Please try again in a few moments.';
+      } else if (error.code === 'functions/internal') {
+        error.message = 'An error occurred while processing your resume. Please try again.';
+      }
       throw error;
     }
   }
@@ -164,7 +189,14 @@ class FirebaseResumeService {
       
       return resumes;
     } catch (error) {
-      console.error('Error fetching user resumes:', error);
+      // Enhance error message for better user feedback
+      if (error.code === 'functions/deadline-exceeded') {
+        error.message = 'Resume processing is taking longer than expected. Please try again.';
+      } else if (error.code === 'functions/unavailable') {
+        error.message = 'Resume service is temporarily unavailable. Please try again in a few moments.';
+      } else if (error.code === 'functions/internal') {
+        error.message = 'An error occurred while processing your resume. Please try again.';
+      }
       throw error;
     }
   }
@@ -184,7 +216,46 @@ class FirebaseResumeService {
         throw new Error('Resume not found');
       }
     } catch (error) {
-      console.error('Error fetching resume:', error);
+      // Enhance error message for better user feedback
+      if (error.code === 'functions/deadline-exceeded') {
+        error.message = 'Resume processing is taking longer than expected. Please try again.';
+      } else if (error.code === 'functions/unavailable') {
+        error.message = 'Resume service is temporarily unavailable. Please try again in a few moments.';
+      } else if (error.code === 'functions/internal') {
+        error.message = 'An error occurred while processing your resume. Please try again.';
+      }
+      throw error;
+    }
+  }
+
+  // Update resume structured data
+  async updateResume(resumeId, userId, structuredData) {
+    try {
+      // Get the resume to check ownership
+      const resumeDoc = await this.getResumeById(resumeId);
+      
+      // Check ownership
+      if (resumeDoc.userId !== userId) {
+        throw new Error('Unauthorized to update this resume');
+      }
+      
+      // Update the resume with new structured data
+      const docRef = doc(db, this.collectionName, resumeId);
+      await updateDoc(docRef, {
+        structuredData,
+        updatedAt: serverTimestamp()
+      });
+      
+      return { success: true, message: 'Resume updated successfully' };
+    } catch (error) {
+      // Enhance error message for better user feedback
+      if (error.code === 'functions/deadline-exceeded') {
+        error.message = 'Resume processing is taking longer than expected. Please try again.';
+      } else if (error.code === 'functions/unavailable') {
+        error.message = 'Resume service is temporarily unavailable. Please try again in a few moments.';
+      } else if (error.code === 'functions/internal') {
+        error.message = 'An error occurred while processing your resume. Please try again.';
+      }
       throw error;
     }
   }
@@ -209,13 +280,20 @@ class FirebaseResumeService {
         try {
           await deleteObject(storageRef);
         } catch (storageError) {
-          console.warn('Could not delete file from storage:', storageError);
+          // Could not delete file from storage
         }
       }
       
       return { success: true, message: 'Resume deleted successfully' };
     } catch (error) {
-      console.error('Error deleting resume:', error);
+      // Enhance error message for better user feedback
+      if (error.code === 'functions/deadline-exceeded') {
+        error.message = 'Resume processing is taking longer than expected. Please try again.';
+      } else if (error.code === 'functions/unavailable') {
+        error.message = 'Resume service is temporarily unavailable. Please try again in a few moments.';
+      } else if (error.code === 'functions/internal') {
+        error.message = 'An error occurred while processing your resume. Please try again.';
+      }
       throw error;
     }
   }
@@ -258,7 +336,14 @@ class FirebaseResumeService {
       
       return resumes;
     } catch (error) {
-      console.error('Error searching resumes:', error);
+      // Enhance error message for better user feedback
+      if (error.code === 'functions/deadline-exceeded') {
+        error.message = 'Resume processing is taking longer than expected. Please try again.';
+      } else if (error.code === 'functions/unavailable') {
+        error.message = 'Resume service is temporarily unavailable. Please try again in a few moments.';
+      } else if (error.code === 'functions/internal') {
+        error.message = 'An error occurred while processing your resume. Please try again.';
+      }
       throw error;
     }
   }
@@ -285,7 +370,14 @@ class FirebaseResumeService {
       
       return resumes;
     } catch (error) {
-      console.error('Error fetching recent resumes:', error);
+      // Enhance error message for better user feedback
+      if (error.code === 'functions/deadline-exceeded') {
+        error.message = 'Resume processing is taking longer than expected. Please try again.';
+      } else if (error.code === 'functions/unavailable') {
+        error.message = 'Resume service is temporarily unavailable. Please try again in a few moments.';
+      } else if (error.code === 'functions/internal') {
+        error.message = 'An error occurred while processing your resume. Please try again.';
+      }
       throw error;
     }
   }

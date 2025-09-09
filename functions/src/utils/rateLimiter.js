@@ -48,7 +48,6 @@ class RateLimiter {
                     }
                 })
                 .catch(error => {
-                    console.error(`Task ${index} failed after retries:`, error.message);
                     results[index] = { 
                         success: false, 
                         error: error.message,
@@ -118,7 +117,6 @@ class RateLimiter {
             // Check if we should retry
             if (this.shouldRetry(error, item.attempts, config)) {
                 const delay = this.calculateRetryDelay(item.attempts, config);
-                console.log(`Retrying task (attempt ${item.attempts + 1}/${config.maxRetries + 1}) after ${delay}ms delay. Error: ${error.message}`);
                 
                 await this.delay(delay);
                 

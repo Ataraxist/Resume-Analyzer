@@ -15,9 +15,14 @@ service cloud.firestore {
     match /users/{userId} {
       allow read: if isOwner(userId);
       allow create: if isAuthenticated() && request.auth.uid == userId;
-      allow update: if isOwner(userId) && 
-        // Prevent users from modifying their role directly
-        (!request.resource.data.diff(resource.data).affectedKeys().hasAny(['role']));
+      allow update: if isOwner(userId) && (
+        // Allow setting role during anonymous account upgrade
+        // Check if this is an upgrade from anonymous (wasAnonymous is being set to true)
+        (request.resource.data.get('wasAnonymous', false) == true && 
+         request.resource.data.get('isAnonymous', false) == false) ||
+        // For regular updates by non-anonymous users, prevent role modification
+        (!request.resource.data.diff(resource.data).affectedKeys().hasAny(['role']))
+      );
     }
     
     // Resumes collection
@@ -43,20 +48,6 @@ service cloud.firestore {
         resource.data.userId == request.auth.uid;
     }
     
-    // Analysis status collection (for real-time streaming updates)
-    match /analysisStatus/{analysisId} {
-      allow read: if isAuthenticated() && 
-        resource.data.userId == request.auth.uid;
-      allow write: if false; // Only writable by functions
-    }
-    
-    // Parse status collection (for real-time resume parsing updates)
-    match /parseStatus/{parseId} {
-      allow read: if isAuthenticated() && 
-        resource.data.userId == request.auth.uid;
-      allow write: if false; // Only writable by functions
-    }
-    
     // Occupations collection (read-only for all authenticated users)
     match /occupations/{occupationCode} {
       allow read: if true; // Public data
@@ -72,12 +63,6 @@ service cloud.firestore {
     // System metadata (read-only)
     match /system/{document} {
       allow read: if true;
-      allow write: if false;
-    }
-    
-    // Processing errors (write-only by functions, no read)
-    match /processing_errors/{errorId} {
-      allow read: if false;
       allow write: if false;
     }
     

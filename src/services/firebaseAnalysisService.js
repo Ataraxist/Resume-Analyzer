@@ -28,7 +28,6 @@ class FirebaseAnalysisService {
       const requestId = `req_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
       
       
-      console.log('[FirebaseAnalysisService] Starting analysis with streaming, requestId:', requestId);
       
       // Use streaming directly - no fallbacks
       const { stream, data: dataPromise } = await analyzeResumeFunction.stream({ 
@@ -41,8 +40,6 @@ class FirebaseAnalysisService {
       
       // Process stream chunks
       for await (const chunk of stream) {
-        console.log('[FirebaseAnalysisService] Received chunk:', chunk);
-        
         // Extract analysisId from the first chunk
         if (chunk.analysisId && !analysisId) {
           analysisId = chunk.analysisId;
@@ -56,7 +53,6 @@ class FirebaseAnalysisService {
       
       // Wait for final result
       const finalResult = await dataPromise;
-      console.log('[FirebaseAnalysisService] Analysis completed:', finalResult);
       
       
       return {
@@ -65,8 +61,6 @@ class FirebaseAnalysisService {
         analysis: finalResult
       };
     } catch (error) {
-      console.error('Error analyzing resume:', error);
-      
       // Handle specific error codes
       if (error.code === 'functions/resource-exhausted') {
         throw new Error('Insufficient credits. Please purchase more credits to continue.');
@@ -106,7 +100,6 @@ class FirebaseAnalysisService {
       
       return analyses;
     } catch (error) {
-      console.error('Error fetching analyses:', error);
       throw error;
     }
   }
@@ -132,7 +125,6 @@ class FirebaseAnalysisService {
       
       return analyses;
     } catch (error) {
-      console.error('Error fetching resume analyses:', error);
       throw error;
     }
   }
@@ -152,7 +144,6 @@ class FirebaseAnalysisService {
         throw new Error('Analysis not found');
       }
     } catch (error) {
-      console.error('Error fetching analysis:', error);
       throw error;
     }
   }
@@ -184,7 +175,6 @@ class FirebaseAnalysisService {
       
       return matches;
     } catch (error) {
-      console.error('Error fetching top matches:', error);
       throw error;
     }
   }
@@ -204,7 +194,6 @@ class FirebaseAnalysisService {
       
       return { success: true, message: 'Analysis deleted successfully' };
     } catch (error) {
-      console.error('Error deleting analysis:', error);
       throw error;
     }
   }
@@ -231,7 +220,6 @@ class FirebaseAnalysisService {
       
       return analyses;
     } catch (error) {
-      console.error('Error fetching recent analyses:', error);
       throw error;
     }
   }
@@ -282,7 +270,6 @@ class FirebaseAnalysisService {
         scoreDistribution
       };
     } catch (error) {
-      console.error('Error calculating statistics:', error);
       throw error;
     }
   }
