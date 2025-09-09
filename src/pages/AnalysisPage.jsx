@@ -1,47 +1,52 @@
-import { useState, useEffect } from 'react';
-import { useLocation, useNavigate, Link } from 'react-router-dom';
+import { useState, useEffect, useCallback } from 'react';
+import { useLocation, useNavigate, useParams, Link } from 'react-router-dom';
 import firebaseAnalysisService from '../services/firebaseAnalysisService';
-import { useAuth } from '../contexts/FirebaseAuthContext';
 import AnalysisDashboard from '../components/analysis/AnalysisDashboard';
-import { MessageCycler, analysisMessages } from '../utils/loadingMessages';
-import { normalizeDimensionScore } from '../utils/analysisDataNormalizer';
-import { Loader2, AlertCircle, Info } from 'lucide-react';
+import StreamingStatusDisplay from '../components/common/StreamingStatusDisplay';
+import { getExpectedAnalysisDimensions } from '../utils/statusFormatters';
+import { Loader2, AlertCircle } from 'lucide-react';
 
 function AnalysisPage() {
   const location = useLocation();
   const navigate = useNavigate();
-  const { user } = useAuth();
+  const { analysisId } = useParams();
   const [error, setError] = useState(null);
   const [isStreaming, setIsStreaming] = useState(false);
   const [analysisData, setAnalysisData] = useState(null);
   const [dimensionScores, setDimensionScores] = useState({});
-  const [currentMessage, setCurrentMessage] = useState('');
-  const [showTooltip, setShowTooltip] = useState(false);
-  const [messageCycler] = useState(() => new MessageCycler(analysisMessages));
   const [progress, setProgress] = useState(0);
+  const [currentDimension, setCurrentDimension] = useState(null);
+  const [completedDimensions, setCompletedDimensions] = useState([]);
+  const [pendingDimensions, setPendingDimensions] = useState([]);
+  const [isAnalysisInProgress, setIsAnalysisInProgress] = useState(false);
+  const [abortController, setAbortController] = useState(null);
+  const [loadingExistingAnalysis, setLoadingExistingAnalysis] = useState(false);
+  const [existingAnalysisData, setExistingAnalysisData] = useState(null);
   
   const resumeId = location.state?.resumeId;
   const selectedOccupation = location.state?.selectedOccupation;
   
-  useEffect(() => {
-    if (!resumeId || !selectedOccupation) {
-      navigate('/upload');
+  const startStreamingAnalysis = useCallback(() => {
+    // Prevent multiple simultaneous analyses
+    if (isAnalysisInProgress) {
       return;
     }
     
-    // Start streaming analysis immediately
-    startStreamingAnalysis();
-  }, [resumeId, selectedOccupation, navigate]);
-  
-  const startStreamingAnalysis = () => {
+    setIsAnalysisInProgress(true);
     setIsStreaming(true);
     setError(null);
     
-    // Start message cycling
-    messageCycler.onChange(setCurrentMessage);
-    messageCycler.start();
+    // Create new abort controller for this analysis
+    const controller = new AbortController();
+    setAbortController(controller);
     
-    // Initialize analysis data structure
+    // Initialize dimension tracking
+    const expectedDimensions = getExpectedAnalysisDimensions();
+    setPendingDimensions(expectedDimensions);
+    setCompletedDimensions([]);
+    setCurrentDimension(null);
+    
+    // Initialize analysis data structure with new fields
     const initialData = {
       resumeId,
       occupationCode: selectedOccupation.code,
@@ -49,8 +54,12 @@ function AnalysisPage() {
       dimensionScores: {},
       overallFitScore: 0,
       fitCategory: null,
+      fitCategoryDescription: null,
       recommendations: [],
       gaps: {},
+      scoreBreakdown: null,
+      improvementImpact: null,
+      timeToQualify: null,
       status: 'processing'
     };
     setAnalysisData(initialData);
@@ -65,7 +74,6 @@ function AnalysisPage() {
         if (chunk.type === 'error') {
           setError(chunk.error || 'Analysis failed');
           setIsStreaming(false);
-          messageCycler.stop();
           return;
         }
         
@@ -74,22 +82,32 @@ function AnalysisPage() {
           setProgress(chunk.progress);
         }
         
+        // Handle dimension started
+        if (chunk.type === 'dimension_started') {
+          setCurrentDimension(chunk.dimension);
+          setPendingDimensions(prev => prev.filter(d => d !== chunk.dimension));
+        }
+        
         // Handle dimension completion
         if (chunk.type === 'dimension_completed') {
-          // Normalize the dimension score to ensure consistent structure
-          const normalizedScore = normalizeDimensionScore(chunk.scores);
-          
+          // Store the dimension scores directly from the chunk
           setDimensionScores(prev => ({
             ...prev,
-            [chunk.dimension]: normalizedScore
+            [chunk.dimension]: chunk.scores
           }));
+          
+          // Also update analysisData to ensure dashboard receives updates
           setAnalysisData(prev => ({
             ...prev,
             dimensionScores: {
               ...prev.dimensionScores,
-              [chunk.dimension]: normalizedScore
+              [chunk.dimension]: chunk.scores
             }
           }));
+          
+          // Update dimension tracking
+          setCompletedDimensions(prev => [...prev, chunk.dimension]);
+          setCurrentDimension(null);
         }
         
         // Handle analysis completion
@@ -99,16 +117,18 @@ function AnalysisPage() {
             analysisId: chunk.analysisId,
             overallFitScore: chunk.overallFitScore,
             fitCategory: chunk.fitCategory,
+            fitCategoryDescription: chunk.fitCategoryDescription,
             recommendations: chunk.recommendations || [],
-            dimensionScores,
+            timeToQualify: chunk.timeToQualify,
+            narrativeSummary: chunk.narrativeSummary, // Add narrative summary
             status: 'completed',
             isStreaming: false
           };
           
           setAnalysisData(completedAnalysis);
           setIsStreaming(false);
+          setIsAnalysisInProgress(false);
           setProgress(100);
-          messageCycler.stop();
           
           // Update URL with analysisId for bookmarking/sharing
           // Use replace to avoid adding to history stack
@@ -120,26 +140,112 @@ function AnalysisPage() {
         }
       }
     ).then((result) => {
-      // No unsubscribe needed for streaming
-      console.log('Analysis completed:', result);
+      // Merge the full analysis data from the final result
+      if (result && result.success && result.analysis) {
+        // Update with complete analysis data including enriched fields
+        setAnalysisData(prev => ({
+          ...prev,
+          ...result.analysis,
+          recommendations: result.analysis.recommendations || prev.recommendations || [],
+          gaps: result.analysis.gaps || {},
+          scoreBreakdown: result.analysis.scoreBreakdown || null,
+          improvementImpact: result.analysis.improvementImpact || null,
+          timeToQualify: result.analysis.timeToQualify || null,
+          fitCategoryDetails: result.analysis.fitCategoryDetails || null
+        }));
+        
+        // Update dimension scores with full data
+        if (result.analysis.dimensionScores) {
+          setDimensionScores(result.analysis.dimensionScores);
+        }
+      }
     }).catch((error) => {
       setError(error.message);
       setIsStreaming(false);
-      messageCycler.stop();
+      setIsAnalysisInProgress(false);
     });
     
     // Store cleanup function
     window.analysisCleanup = () => {
-      messageCycler.stop();
+      controller.abort();
     };
-  };
+  }, [resumeId, selectedOccupation, isAnalysisInProgress]);
+
+  useEffect(() => {
+    // Don't redirect if we're loading an existing analysis
+    if (!analysisId && (!resumeId || !selectedOccupation)) {
+      navigate('/upload');
+      return;
+    }
+    
+    // Only start streaming for new analyses (not when viewing historical ones)
+    if (resumeId && selectedOccupation) {
+      // Debounce to prevent rapid re-triggers
+      const debounceTimer = setTimeout(() => {
+        // Only start if not already in progress
+        if (!isAnalysisInProgress) {
+          startStreamingAnalysis();
+        }
+      }, 500);
+      
+      return () => {
+        clearTimeout(debounceTimer);
+      };
+    }
+    // Remove startStreamingAnalysis from dependencies to prevent loops
+  }, [resumeId, selectedOccupation, navigate, analysisId]);
   
   const handleRetry = () => {
+    // Abort any existing analysis
+    if (abortController) {
+      abortController.abort();
+    }
+    
     setError(null);
     setProgress(0);
     setDimensionScores({});
-    startStreamingAnalysis();
+    setIsAnalysisInProgress(false);
+    setCurrentDimension(null);
+    setCompletedDimensions([]);
+    setPendingDimensions(getExpectedAnalysisDimensions());
+    
+    // Small delay before retry to ensure cleanup
+    setTimeout(() => {
+      startStreamingAnalysis();
+    }, 100);
   };
+  
+  // Load existing analysis if analysisId is provided
+  useEffect(() => {
+    const loadExistingAnalysis = async () => {
+      if (!analysisId) return;
+      
+      try {
+        setLoadingExistingAnalysis(true);
+        setError(null);
+        
+        const analysis = await firebaseAnalysisService.getAnalysisById(analysisId);
+        
+        if (!analysis) {
+          setError('Analysis not found');
+          return;
+        }
+        
+        // Set the analysis data
+        setExistingAnalysisData(analysis);
+        setAnalysisData(analysis);
+        setDimensionScores(analysis.dimensionScores || {});
+        
+      } catch (err) {
+        console.error('Error loading analysis:', err);
+        setError('Failed to load analysis. Please try again.');
+      } finally {
+        setLoadingExistingAnalysis(false);
+      }
+    };
+    
+    loadExistingAnalysis();
+  }, [analysisId]);
   
   // Cleanup on unmount
   useEffect(() => {
@@ -148,9 +254,12 @@ function AnalysisPage() {
         window.analysisCleanup();
         delete window.analysisCleanup;
       }
-      messageCycler.stop();
+      if (abortController) {
+        abortController.abort();
+      }
+      setIsAnalysisInProgress(false);
     };
-  }, []);
+  }, [abortController]);
   
   const handleGoBack = () => {
     navigate('/upload', { 
@@ -158,82 +267,76 @@ function AnalysisPage() {
     });
   };
   
-  if (!resumeId || !selectedOccupation) {
-    return null;
+  // Show loading state when fetching existing analysis
+  if (loadingExistingAnalysis) {
+    return (
+      <div className="min-h-[60vh] flex items-center justify-center">
+        <div className="text-center">
+          <Loader2 className="h-12 w-12 text-primary-600 animate-spin mx-auto mb-4" />
+          <h2 className="text-xl font-semibold text-gray-900 mb-2">
+            Loading Analysis...
+          </h2>
+          <p className="text-gray-600">
+            Retrieving your saved analysis results
+          </p>
+        </div>
+      </div>
+    );
   }
   
-  // Show analysis UI (streaming or completed)
-  if (analysisData && (isStreaming || analysisData.status === 'completed')) {
+  // If we have neither new analysis params nor an existing analysis, show error
+  if (!analysisId && (!resumeId || !selectedOccupation)) {
+    return (
+      <div className="min-h-[60vh] flex items-center justify-center">
+        <div className="text-center max-w-md">
+          <AlertCircle className="h-12 w-12 text-danger-600 mx-auto mb-4" />
+          <h2 className="text-xl font-semibold text-gray-900 mb-2">
+            No Analysis Data
+          </h2>
+          <p className="text-gray-600 mb-6">
+            Unable to load analysis. Please start a new analysis from the careers page.
+          </p>
+          <button
+            onClick={() => navigate('/careers')}
+            className="px-6 py-3 bg-primary-600 text-white rounded-md hover:bg-primary-700 transition-colors"
+          >
+            Explore Careers
+          </button>
+        </div>
+      </div>
+    );
+  }
+  
+  // Show analysis UI (streaming, completed, or loaded from history)
+  if (analysisData && (isStreaming || analysisData.status === 'completed' || existingAnalysisData)) {
+    // Use occupation data from either source
+    const occupationTitle = selectedOccupation?.title || analysisData.occupationTitle || 'Career';
+    const occupationCode = selectedOccupation?.code || analysisData.occupationCode || '';
+    
     return (
       <div className="max-w-7xl mx-auto">
-        {/* Whimsical Processing Status Banner - only during streaming */}
-        {isStreaming && currentMessage && (
-          <div className="fixed top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 z-50 w-11/12 md:w-auto max-w-md animate-fade-in">
-            <div className="bg-gradient-to-r from-primary-50 to-indigo-50 border border-primary-200 rounded-full shadow-lg px-4 md:px-6 py-2 md:py-3">
-              <div className="flex items-center space-x-3">
-                <div className="relative">
-                  <div className="animate-spin rounded-full h-5 w-5 border-2 border-primary-200 border-t-primary-600"></div>
-                  <div className="absolute inset-0 animate-ping rounded-full h-5 w-5 border border-primary-400 opacity-20"></div>
-                </div>
-                <span className="text-sm font-medium text-gray-700 italic">
-                  {currentMessage}
-                </span>
-                
-                {/* Info icon with tooltip */}
-                <div className="relative">
-                  <button
-                    onMouseEnter={() => setShowTooltip(true)}
-                    onMouseLeave={() => setShowTooltip(false)}
-                    onClick={() => setShowTooltip(!showTooltip)}
-                    className="text-gray-400 hover:text-gray-600 transition-colors focus:outline-none"
-                    aria-label="What's happening?"
-                  >
-                    <Info className="h-4 w-4" />
-                  </button>
-                  
-                  {/* Tooltip */}
-                  {showTooltip && (
-                    <div className="absolute md:left-1/2 md:transform md:-translate-x-1/2 right-0 md:right-auto top-8 w-72 max-w-[calc(100vw-2rem)] p-3 bg-gray-900 text-white text-xs rounded-lg shadow-xl z-10">
-                      <div className="absolute -top-2 left-1/2 transform -translate-x-1/2 w-0 h-0 border-l-[6px] border-l-transparent border-r-[6px] border-r-transparent border-b-[8px] border-b-gray-900"></div>
-                      <p className="font-semibold mb-1">What's actually happening:</p>
-                      <p className="leading-relaxed">
-                        Our AI is analyzing your resume against the job requirements across 
-                        6 key dimensions: tasks, skills, education, work activities, knowledge, 
-                        and tools. Each dimension is being evaluated in real-time to calculate 
-                        your overall fit score and provide personalized recommendations.
-                      </p>
-                      <p className="mt-2 text-gray-300 text-[10px]">
-                        The fun messages are just for entertainment while you wait!
-                      </p>
-                    </div>
-                  )}
-                </div>
-              </div>
-            </div>
-          </div>
-        )}
-        
-        {/* Progress bar - only during streaming */}
+        {/* Real-time Analysis Status - only during streaming */}
         {isStreaming && (
           <div className="mb-8">
-          <div className="w-full bg-gray-200 rounded-full h-1.5 overflow-hidden">
-            <div className="bg-gradient-to-r from-primary-400 to-indigo-500 h-1.5 rounded-full animate-pulse"
-                 style={{
-                   width: `${progress}%`,
-                   transition: 'width 0.5s ease-out'
-                 }}>
+            <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+              <StreamingStatusDisplay
+                currentOperation={currentDimension}
+                completedOperations={completedDimensions}
+                pendingOperations={pendingDimensions}
+                progress={progress}
+                type="analysis"
+              />
             </div>
           </div>
-        </div>
         )}
         
         {/* Show header */}
         <div className="mb-8">
           <h1 className="text-3xl font-bold text-gray-900 mb-1">
-            {selectedOccupation.title} Career Readiness Assessment
+            {occupationTitle} Career Readiness Assessment
           </h1>
           <p className="text-sm text-gray-500">
-            {isStreaming ? 'Assessing your career readiness in real-time...' : selectedOccupation.code}
+            {isStreaming ? 'Assessing your career readiness in real-time...' : occupationCode}
           </p>
         </div>
         
@@ -241,7 +344,7 @@ function AnalysisPage() {
         <AnalysisDashboard 
           data={{
             ...analysisData,
-            dimensionScores: analysisData.status === 'completed' ? analysisData.dimensionScores : dimensionScores,
+            dimensionScores: dimensionScores || analysisData.dimensionScores,
             overallFitScore: analysisData?.overallFitScore,
             isStreaming: isStreaming
           }} 
@@ -260,9 +363,11 @@ function AnalysisPage() {
             <h2 className="text-xl font-semibold text-gray-900 mb-2">
               Initializing analysis...
             </h2>
-            <p className="text-gray-600">
-              Preparing to assess your readiness for {selectedOccupation.title}
-            </p>
+            {selectedOccupation && (
+              <p className="text-gray-600">
+                Preparing to assess your readiness for {selectedOccupation.title}
+              </p>
+            )}
           </>
         ) : (
           <>

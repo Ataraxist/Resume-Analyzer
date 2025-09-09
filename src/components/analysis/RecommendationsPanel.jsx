@@ -74,7 +74,7 @@ function RecommendationsPanel({ recommendations = [] }) {
                     </div>
                   </div>
                   
-                  {rec.actions && rec.actions.length > 0 && (
+                  {rec.actions && Array.isArray(rec.actions) && rec.actions.length > 0 && (
                     <div className="space-y-3 mt-4 pt-4 border-t border-gray-200">
                       {rec.actions.map((action, actionIdx) => {
                         return (

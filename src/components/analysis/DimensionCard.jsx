@@ -15,9 +15,9 @@ function DimensionCard({ dimension, data }) {
   
   // Determine gap priority
   const getGapPriority = () => {
-    if (score < 50 && ['tasks', 'skills'].includes(dimension)) {
+    if (score < 50 && ['skills', 'experience'].includes(dimension)) {
       return { level: 'critical', icon: AlertCircle, color: 'text-danger-600', bgColor: 'bg-danger-50' };
-    } else if (score < 70 && ['education', 'tools', 'workActivities'].includes(dimension)) {
+    } else if (score < 70 && ['education', 'abilities', 'knowledge'].includes(dimension)) {
       return { level: 'important', icon: AlertTriangle, color: 'text-warning-600', bgColor: 'bg-warning-50' };
     } else {
       return { level: 'nice-to-have', icon: Info, color: 'text-primary-600', bgColor: 'bg-primary-50' };

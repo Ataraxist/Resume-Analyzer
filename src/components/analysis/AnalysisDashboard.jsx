@@ -1,36 +1,66 @@
 import { useState, useEffect, useRef } from 'react';
 import { TrendingUp, TrendingDown, Minus } from 'lucide-react';
 import DimensionRadarChart from './DimensionRadarChart';
+import DimensionRadarChartSkeleton from './DimensionRadarChartSkeleton';
 import DimensionCard from './DimensionCard';
 import DimensionCardSkeleton from './DimensionCardSkeleton';
+import AnalysisSummarySkeleton from './AnalysisSummarySkeleton';
+import NarrativeSummary from './NarrativeSummary';
+import NarrativeSummarySkeleton from './NarrativeSummarySkeleton';
 import RecommendationsPanel from './RecommendationsPanel';
+import RecommendationsPanelSkeleton from './RecommendationsPanelSkeleton';
+import TimeToQualifyWidget from './TimeToQualifyWidget';
+import TimeToQualifyWidgetSkeleton from './TimeToQualifyWidgetSkeleton';
 import { normalizeDimensionScore } from '../../utils/analysisDataNormalizer';
 
-// Analysis helper functions
-const getFitCategory = (score) => {
-  if (score >= 80) return { label: 'Excellent Fit', color: 'text-green-600' };
-  if (score >= 60) return { label: 'Good Fit', color: 'text-blue-600' };
-  if (score >= 40) return { label: 'Fair Fit', color: 'text-yellow-600' };
-  return { label: 'Needs Improvement', color: 'text-red-600' };
+// Helper to get color class based on fit category
+const getFitCategoryColor = (category) => {
+  const categoryLower = (category || '').toLowerCase();
+  if (categoryLower.includes('excellent')) return 'text-green-600';
+  if (categoryLower.includes('good') || categoryLower.includes('strong')) return 'text-blue-600';
+  if (categoryLower.includes('moderate') || categoryLower.includes('fair')) return 'text-yellow-600';
+  if (categoryLower.includes('developing') || categoryLower.includes('early')) return 'text-orange-600';
+  return 'text-red-600';
+};
+
+const getDimensionDisplayName = (key) => {
+  const nameMap = {
+    tasks: 'Job Tasks',
+    skills: 'Core Skills',
+    education: 'Education',
+    workActivities: 'Work Activities',
+    knowledge: 'Knowledge Areas',
+    tools: 'Tools & Software'
+  };
+  return nameMap[key] || key.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
 };
 
 const formatDimensionScores = (scores) => {
   return Object.entries(scores).map(([key, value]) => {
     const normalized = normalizeDimensionScore(value);
     return {
-      name: key.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase()),
+      dimension: getDimensionDisplayName(key),
+      key: key,
       score: normalized.score,
       matches: normalized.matches,
-      gaps: normalized.gaps
+      gaps: normalized.gaps,
+      confidence: value.confidence || 'medium',
+      importance: value.importance || 'medium',
+      strengthAreas: value.strengthAreas || [],
+      alternativeTools: value.alternativeTools || []
     };
   });
 };
 
-// Dimension order for auto-cycling
+// Dimension order for auto-cycling - now includes 6 dimensions
 const DIMENSION_ORDER = ['tasks', 'skills', 'education', 'workActivities', 'knowledge', 'tools'];
 
 function AnalysisDashboard({ data }) {
-  const [selectedDimension, setSelectedDimension] = useState('tasks');
+  // Default to first available dimension or 'skills'
+  const availableDimensions = Object.keys(data.dimensionScores || {});
+  const defaultDimension = availableDimensions.includes('skills') ? 'skills' : 
+                           availableDimensions[0] || 'skills';
+  const [selectedDimension, setSelectedDimension] = useState(defaultDimension);
   const [previewDimension, setPreviewDimension] = useState(null);
   const [isHovering, setIsHovering] = useState(false);
   const [userHasInteracted, setUserHasInteracted] = useState(false);
@@ -50,7 +80,12 @@ function AnalysisDashboard({ data }) {
       )
     : data.overallFitScore || 0;
   
-  const fitCategory = getFitCategory(overallScore);
+  // Use fitCategoryDetails from backend if available, otherwise derive from score
+  const fitCategory = data.fitCategoryDetails || {
+    category: data.fitCategory || 'Calculating...',
+    description: data.fitCategoryDescription || '',
+    color: getFitCategoryColor(data.fitCategory)
+  };
   const dimensionData = formatDimensionScores(data.dimensionScores || {});
   
   // Get icon based on score
@@ -86,8 +121,9 @@ function AnalysisDashboard({ data }) {
     }
 
     return () => {
-      if (radarChartRef.current) {
-        observer.unobserve(radarChartRef.current);
+      const element = radarChartRef.current;
+      if (element) {
+        observer.unobserve(element);
       }
     };
   }, []);
@@ -143,85 +179,110 @@ function AnalysisDashboard({ data }) {
         <h2 className="text-2xl font-bold text-gray-900 mb-6 pb-2 border-b border-gray-200">Overview</h2>
         <div className="space-y-6">
           {/* Analysis Summary Card with Fit Score */}
-          <div className="card">
-            <h3 className="text-xl font-bold text-gray-900 mb-4">Analysis Summary</h3>
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-              {/* Left Column - Fit Score */}
-              <div className="space-y-4">
-                <div>
-                  <p className="text-sm text-gray-600 mb-2">Overall Fit Score</p>
-                  <div className={`text-5xl font-bold ${getScoreColor()} mb-4`}>
-                    {Math.round(overallScore)}%
-                  </div>
-                  <div className={`inline-flex items-center px-3 py-1 rounded-full bg-${fitCategory.color}-100 mb-3`}>
-                    <Icon className={`h-4 w-4 mr-1 text-${fitCategory.color}-600`} />
-                    <span className={`text-sm font-medium text-${fitCategory.color}-800`}>
-                      {fitCategory.label}
-                    </span>
-                  </div>
-                </div>
-              </div>
-              
-              {/* Right Column - Existing Summary Content */}
-              <div className="space-y-3">
-                <div>
-                  <p className="text-sm text-gray-600">Time to Qualify</p>
-                  <p className="font-semibold text-gray-900">
-                    {data.timeToQualify?.summary || 'Variable based on gaps'}
-                  </p>
-                </div>
-                
-                <div>
-                  <p className="text-sm text-gray-600">Key Strengths</p>
-                  <div className="flex flex-wrap gap-2 mt-1">
-                    {Object.entries(data.dimensionScores)
-                      .filter(([, dimData]) => {
-                        const normalized = normalizeDimensionScore(dimData);
-                        return normalized.score >= 70;
-                      })
-                      .slice(0, 3)
-                      .map(([dim]) => (
-                        <span key={dim} className="badge badge-success">
-                          {dim.charAt(0).toUpperCase() + dim.slice(1)}
+          {data.isStreaming && !data.overallFitScore && Object.keys(data.dimensionScores || {}).length === 0 ? (
+            <AnalysisSummarySkeleton />
+          ) : (
+            <div className="card">
+              <h3 className="text-xl font-bold text-gray-900 mb-4">Analysis Summary</h3>
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                {/* Left Column - Fit Score */}
+                <div className="space-y-4">
+                  <div>
+                    <p className="text-sm text-gray-600 mb-2">Overall Fit Score</p>
+                    <div className={`text-5xl font-bold ${getScoreColor()} mb-4`}>
+                      {Math.round(overallScore)}%
+                    </div>
+                    <div className="mb-3">
+                      <span className={`inline-flex items-center px-3 py-1 rounded-full ${fitCategory.color || getFitCategoryColor(fitCategory.category)}`}>
+                        <Icon className="h-4 w-4 mr-1" />
+                        <span className="text-sm font-medium">
+                          {fitCategory.category}
                         </span>
-                      ))}
+                      </span>
+                      {fitCategory.description && (
+                        <p className="text-sm text-gray-600 mt-2">
+                          {fitCategory.description}
+                        </p>
+                      )}
+                    </div>
                   </div>
                 </div>
                 
-                <div>
-                  <p className="text-sm text-gray-600">Areas for Improvement</p>
-                  <div className="flex flex-wrap gap-2 mt-1">
-                    {Object.entries(data.dimensionScores)
-                      .filter(([, dimData]) => {
-                        const normalized = normalizeDimensionScore(dimData);
-                        return normalized.score < 50;
-                      })
-                      .slice(0, 3)
-                      .map(([dim]) => (
-                        <span key={dim} className="badge badge-danger">
-                          {dim.charAt(0).toUpperCase() + dim.slice(1)}
-                        </span>
-                      ))}
+                {/* Right Column - Existing Summary Content */}
+                <div className="space-y-3">
+                  <div>
+                    <p className="text-sm text-gray-600">Time to Qualify</p>
+                    <p className="font-semibold text-gray-900">
+                      {data.timeToQualify?.summary || 'Variable based on gaps'}
+                    </p>
+                  </div>
+                  
+                  <div>
+                    <p className="text-sm text-gray-600">Key Strengths</p>
+                    <div className="flex flex-wrap gap-2 mt-1">
+                      {Object.entries(data.dimensionScores)
+                        .filter(([, dimData]) => {
+                          const normalized = normalizeDimensionScore(dimData);
+                          return normalized.score >= 70;
+                        })
+                        .slice(0, 3)
+                        .map(([dim]) => (
+                          <span key={dim} className="badge badge-success">
+                            {dim.charAt(0).toUpperCase() + dim.slice(1)}
+                          </span>
+                        ))}
+                    </div>
+                  </div>
+                  
+                  <div>
+                    <p className="text-sm text-gray-600">Areas for Improvement</p>
+                    <div className="flex flex-wrap gap-2 mt-1">
+                      {Object.entries(data.dimensionScores)
+                        .filter(([, dimData]) => {
+                          const normalized = normalizeDimensionScore(dimData);
+                          return normalized.score < 50;
+                        })
+                        .slice(0, 3)
+                        .map(([dim]) => (
+                          <span key={dim} className="badge badge-danger">
+                            {dim.charAt(0).toUpperCase() + dim.slice(1)}
+                          </span>
+                        ))}
+                    </div>
                   </div>
                 </div>
               </div>
             </div>
-          </div>
+          )}
           
           {/* Radar Chart */}
           <div ref={radarChartRef}>
-            <DimensionRadarChart 
-              data={dimensionData} 
-              selectedDimension={selectedDimension}
-              onDimensionSelect={handleDimensionSelect}
-              onDimensionHover={handleDimensionHover}
-              hoveredDimension={previewDimension}
-              isAutoCycling={!userHasInteracted && !isHovering && isRadarChartVisible && !data.isStreaming}
-              showProgress={!userHasInteracted && !data.isStreaming}
-              cycleProgress={cycleProgress}
-            />
+            {data.isStreaming && Object.keys(data.dimensionScores || {}).length === 0 ? (
+              <DimensionRadarChartSkeleton />
+            ) : (
+              <DimensionRadarChart 
+                data={dimensionData} 
+                selectedDimension={selectedDimension}
+                onDimensionSelect={handleDimensionSelect}
+                onDimensionHover={handleDimensionHover}
+                hoveredDimension={previewDimension}
+                isAutoCycling={!userHasInteracted && !isHovering && isRadarChartVisible && !data.isStreaming}
+                showProgress={!userHasInteracted && !data.isStreaming}
+                cycleProgress={cycleProgress}
+              />
+            )}
           </div>
         </div>
+      </section>
+      
+      {/* Career Summary Section */}
+      <section className="w-full">
+        <h2 className="text-2xl font-bold text-gray-900 mb-6 pb-2 border-b border-gray-200">Career Summary</h2>
+        {data.isStreaming && !data.narrativeSummary ? (
+          <NarrativeSummarySkeleton />
+        ) : (
+          <NarrativeSummary narrativeSummary={data.narrativeSummary} />
+        )}
       </section>
       
       {/* Dimension Analysis Section */}
@@ -240,10 +301,26 @@ function AnalysisDashboard({ data }) {
         </div>
       </section>
       
+      {/* Time to Qualify Section */}
+      {(data.isStreaming || data.timeToQualify) && (
+        <section className="w-full">
+          <h2 className="text-2xl font-bold text-gray-900 mb-6 pb-2 border-b border-gray-200">Career Timeline</h2>
+          {data.isStreaming && !data.timeToQualify ? (
+            <TimeToQualifyWidgetSkeleton />
+          ) : (
+            <TimeToQualifyWidget timeToQualify={data.timeToQualify} />
+          )}
+        </section>
+      )}
+
       {/* Recommendations Section */}
       <section className="w-full">
         <h2 className="text-2xl font-bold text-gray-900 mb-6 pb-2 border-b border-gray-200">Recommendations</h2>
-        <RecommendationsPanel recommendations={data.recommendations} />
+        {data.isStreaming && (!data.recommendations || data.recommendations.length === 0) ? (
+          <RecommendationsPanelSkeleton />
+        ) : (
+          <RecommendationsPanel recommendations={data.recommendations} />
+        )}
       </section>
     </div>
   );

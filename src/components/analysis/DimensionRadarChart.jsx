@@ -3,11 +3,6 @@ import { Radar, RadarChart, PolarGrid, PolarAngleAxis, PolarRadiusAxis, Responsi
 
 function DimensionRadarChart({ data, selectedDimension, onDimensionSelect, onDimensionHover, hoveredDimension: externalHoveredDimension, isAutoCycling: _isAutoCycling, showProgress, cycleProgress }) {
   const [localHoveredDimension, setLocalHoveredDimension] = useState(null);
-  if (!data) {
-    console.error('DimensionRadarChart: No data provided');
-    return null;
-  }
-  const chartData = data;
   
   // Handle hover start
   const handleHoverStart = useCallback((dimension) => {
@@ -52,13 +47,12 @@ function DimensionRadarChart({ data, selectedDimension, onDimensionSelect, onDim
     }
   }, [selectedDimension, onDimensionSelect]);
   
-  const CustomDot = useCallback(({ cx, cy, payload, index }) => {
+  const CustomDot = useCallback(({ cx, cy, payload }) => {
     const isSelected = selectedDimension === payload.key;
     const isHovered = localHoveredDimension === payload.key || externalHoveredDimension === payload.key;
     
     return (
       <circle
-        key={`dot-${index}`}
         cx={cx}
         cy={cy}
         r={isSelected ? 8 : isHovered ? 6 : 4}
@@ -74,7 +68,7 @@ function DimensionRadarChart({ data, selectedDimension, onDimensionSelect, onDim
   }, [selectedDimension, localHoveredDimension, externalHoveredDimension, handleDimensionClick, handleHoverStart, handleHoverEnd]);
   
   const CustomLabel = useCallback(({ payload, x, y, textAnchor, index }) => {
-    const itemKey = chartData[index]?.key;
+    const itemKey = data?.[index]?.key;
     const isSelected = selectedDimension === itemKey;
     const isHovered = localHoveredDimension === itemKey || externalHoveredDimension === itemKey;
     
@@ -87,14 +81,21 @@ function DimensionRadarChart({ data, selectedDimension, onDimensionSelect, onDim
         fontSize={isSelected ? 14 : 12}
         fontWeight={isSelected ? 600 : 400}
         style={{ cursor: 'pointer' }}
-        onClick={() => handleDimensionClick(chartData[index].key)}
-        onMouseEnter={() => handleHoverStart(chartData[index].key)}
+        onClick={() => handleDimensionClick(data[index].key)}
+        onMouseEnter={() => handleHoverStart(data[index].key)}
         onMouseLeave={handleHoverEnd}
       >
         {payload.value}
       </text>
     );
-  }, [chartData, selectedDimension, localHoveredDimension, externalHoveredDimension, handleDimensionClick, handleHoverStart, handleHoverEnd]);
+  }, [data, selectedDimension, localHoveredDimension, externalHoveredDimension, handleDimensionClick, handleHoverStart, handleHoverEnd]);
+  
+  // Early return after all hooks are defined
+  if (!data) {
+    return null;
+  }
+  
+  const chartData = data;
   
   return (
     <div className="card relative">
