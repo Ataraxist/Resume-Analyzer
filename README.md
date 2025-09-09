@@ -1,26 +1,26 @@
-# Resume Analyzer
+# CareerCompass
 
-An AI-powered resume analysis platform that evaluates job-resume fit using O*NET occupation data and provides actionable insights for career development.
+An AI-powered career development advisor that bridges the gap between your current skills and career goals using O*NET occupational data to provide personalized guidance and actionable recommendations.
 
 ## Features
 
 ### Core Functionality
-- **Smart Resume Parsing**: Extract structured data from PDF, DOCX, and Google Docs resumes using AI
-- **O*NET Job Matching**: Compare resumes against 1,000+ standardized occupation profiles
-- **Real-time Streaming Analysis**: Watch your analysis progress with live updates via SSE
-- **Multi-dimensional Scoring**: Evaluate fit across 6 key dimensions:
+- **Experience Analysis**: AI-powered extraction of skills and experience from resumes and Google Docs
+- **Career Path Mapping**: Compare your profile against 1,000+ O*NET occupation profiles
+- **Real-time Assessment**: Watch your career readiness assessment with live updates
+- **Multi-dimensional Evaluation**: Assess readiness across 6 professional dimensions:
   - Tasks & Responsibilities
   - Skills & Abilities
   - Educational Requirements
   - Work Activities
   - Knowledge Areas
   - Tools & Technology
-- **Actionable Recommendations**: Get specific guidance for skill development and career growth
+- **Personalized Career Guidance**: Receive specific recommendations for skill development, certifications, and career advancement
 - **Credit-based System**: Fair usage model with secure Stripe integration
 
 ### User Experience
 - **Interactive Visualizations**: Dynamic radar charts showing dimensional strengths
-- **Progressive Loading**: See results as they're calculated, no waiting for full analysis
+- **Progressive Results**: View insights as they're generated in real-time
 - **Smart Caching**: Instant results for repeated analyses
 - **Mobile Responsive**: Full functionality across all devices
 - **Session Management**: Secure authentication with JWT tokens

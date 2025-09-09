@@ -1,0 +1,66 @@
+import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { FirebaseAuthProvider } from './contexts/FirebaseAuthContext';
+import ProtectedRoute from './components/auth/ProtectedRoute';
+import Layout from './components/layout/Layout';
+import HomePage from './pages/HomePage';
+import LoginPage from './pages/LoginPage';
+import SignupPage from './pages/SignupPage';
+import JobSelectionPage from './pages/JobSelectionPage';
+import UploadPage from './pages/UploadPage';
+import AnalysisPage from './pages/AnalysisPage';
+import NotFoundPage from './pages/NotFoundPage';
+import './styles/globals.css';
+
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      staleTime: 5 * 60 * 1000, // 5 minutes
+      cacheTime: 10 * 60 * 1000, // 10 minutes
+      refetchOnWindowFocus: false,
+    },
+  },
+});
+
+function App() {
+  return (
+    <QueryClientProvider client={queryClient}>
+      <Router>
+        <FirebaseAuthProvider>
+          <Routes>
+            {/* Public routes */}
+            <Route path="/login" element={<LoginPage />} />
+            <Route path="/signup" element={<SignupPage />} />
+            
+            {/* Mixed public/protected routes with Layout */}
+            <Route element={<Layout />}>
+              {/* Public routes - accessible to everyone */}
+              <Route path="/" element={<HomePage />} />
+              <Route path="/careers" element={<JobSelectionPage />} />
+              <Route path="/upload" element={<UploadPage />} />
+              <Route path="/analysis" element={<AnalysisPage />} />
+              <Route path="/analysis/:analysisId" element={<AnalysisPage />} />
+              
+              {/* Protected routes - require authentication */}
+              <Route path="/dashboard" element={
+                <ProtectedRoute>
+                  <HomePage />
+                </ProtectedRoute>
+              } />
+              <Route path="/history" element={
+                <ProtectedRoute>
+                  <HomePage />
+                </ProtectedRoute>
+              } />
+              
+              {/* 404 Page - Catch all unmatched routes */}
+              <Route path="*" element={<NotFoundPage />} />
+            </Route>
+          </Routes>
+        </FirebaseAuthProvider>
+      </Router>
+    </QueryClientProvider>
+  );
+}
+
+export default App
