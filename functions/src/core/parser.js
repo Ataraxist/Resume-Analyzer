@@ -48,14 +48,14 @@ function attemptPartialParse(jsonString) {
     }
     
     return JSON.parse(tentative);
-  } catch (e) {
+  } catch {
     // Still not parseable
     return null;
   }
 }
 
 // Extract granular updates from partial JSON for streaming
-function extractGranularUpdates(currentJson, previousState, streamCallback) {
+function extractGranularUpdates(currentJson, previousState, _streamCallback) {
   const updates = [];
   
   // Check for array fields (experience, education)
@@ -310,8 +310,7 @@ async function parseResumeWithStreaming(resumeText, userId, fileName = 'Direct I
 
     const systemPrompt = getSystemPrompt();
     
-    // Log that processing is starting
-    console.log('Starting resume parsing for:', fileName);
+    // Processing is starting
 
     // Use streaming with gpt-5-mini model (no temperature or max_tokens)
     const stream = await openai.chat.completions.create({
@@ -328,14 +327,12 @@ async function parseResumeWithStreaming(resumeText, userId, fileName = 'Direct I
     let currentObject = {};
     let previousState = {};
     let completedFields = [];
-    let chunkCount = 0;
     let totalUpdates = 0;
     
     for await (const chunk of stream) {
       const delta = chunk.choices[0]?.delta?.content;
       if (delta) {
         fullContent += delta;
-        chunkCount++;
         
         // Try to parse accumulated JSON and extract completed fields
         try {
@@ -350,7 +347,6 @@ async function parseResumeWithStreaming(resumeText, userId, fileName = 'Direct I
                   field !== 'skills' && field !== 'achievements' && field !== 'credentials') {
                 currentObject[field] = value;
                 completedFields.push(field);
-                console.log(`Field completed: ${field}`);
                 
                 if (streamCallback) {
                   streamCallback({
@@ -371,7 +367,6 @@ async function parseResumeWithStreaming(resumeText, userId, fileName = 'Direct I
             // Send each granular update
             for (const update of granularUpdates) {
               if (streamCallback) {
-                console.log(`Granular update: ${update.type} - ${update.field || update.category}`);
                 streamCallback({
                   ...update,
                   progress: Math.min(10 + (totalUpdates * 2), 90),
@@ -394,7 +389,7 @@ async function parseResumeWithStreaming(resumeText, userId, fileName = 'Direct I
               }
             });
           }
-        } catch (e) {
+        } catch {
           // Partial JSON not yet parseable, continue accumulating
         }
       }
@@ -433,8 +428,6 @@ async function parseResumeWithStreaming(resumeText, userId, fileName = 'Direct I
 
     await parseRef.set(resumeData);
     
-    // Log completion
-    console.log('Resume parsing completed for:', fileName);
 
     return {
       resumeId,
@@ -443,16 +436,48 @@ async function parseResumeWithStreaming(resumeText, userId, fileName = 'Direct I
     };
 
   } catch (error) {
-    console.error('Parse error:', error);
+    // Add more context to the error message
+    let enhancedError = error;
     
-    // Log the error
-    console.error('Parse error details:', error.message);
+    // Check for specific error patterns and provide better messages
+    if (error.message?.includes('OPENAI_API_KEY')) {
+      enhancedError = new Error('Resume parsing service is temporarily unavailable. Please try again later.');
+      enhancedError.code = 'PARSER_CONFIG_ERROR';
+    } else if (error.message?.includes('OPENAI_PARSING_MODEL')) {
+      enhancedError = new Error('Resume parser configuration error. Please contact support.');
+      enhancedError.code = 'PARSER_CONFIG_ERROR';
+    } else if (error.message?.includes('JSON')) {
+      enhancedError = new Error('Failed to parse resume structure. The resume format may be incompatible. Please try a different file format.');
+      enhancedError.code = 'PARSER_JSON_ERROR';
+      enhancedError.details = { originalError: error.message };
+    } else if (error.status === 429 || error.message?.includes('rate limit')) {
+      enhancedError = new Error('Too many requests. Please wait a moment and try again.');
+      enhancedError.code = 'PARSER_RATE_LIMIT';
+    } else if (error.status === 504 || error.status === 408) {
+      enhancedError = new Error('Resume processing is taking longer than expected. Please try again with a smaller file.');
+      enhancedError.code = 'PARSER_TIMEOUT';
+    } else if (error.status >= 500) {
+      enhancedError = new Error('Resume parsing service encountered an error. Our team has been notified. Please try again later.');
+      enhancedError.code = 'PARSER_SERVER_ERROR';
+    }
+    
+    // Log the original error for debugging
+    console.error('Parser error:', {
+      message: error.message,
+      status: error.status,
+      code: error.code,
+      fileName,
+      userId,
+      timestamp: new Date().toISOString()
+    });
 
     // Update resume document if it was created
     if (parseRef) {
       await parseRef.update({
         processingStatus: 'failed',
-        errorMessage: error.message,
+        errorMessage: enhancedError.message,
+        errorCode: enhancedError.code,
+        errorDetails: process.env.NODE_ENV === 'development' ? error.message : undefined,
         updatedAt: FieldValue.serverTimestamp()
       }).catch(() => {
         // Document might not exist yet, create it with error
@@ -460,14 +485,15 @@ async function parseResumeWithStreaming(resumeText, userId, fileName = 'Direct I
           userId,
           fileName,
           processingStatus: 'failed',
-          errorMessage: error.message,
+          errorMessage: enhancedError.message,
+          errorCode: enhancedError.code,
           createdAt: FieldValue.serverTimestamp(),
           updatedAt: FieldValue.serverTimestamp()
         });
       });
     }
     
-    throw error;
+    throw enhancedError;
   }
 }
 

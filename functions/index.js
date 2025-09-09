@@ -1,16 +1,8 @@
 const { initializeApp } = require('firebase-admin/app');
-const { getFirestore } = require('firebase-admin/firestore');
-const { getAuth } = require('firebase-admin/auth');
-const { getStorage } = require('firebase-admin/storage');
 const { onCall } = require('firebase-functions/v2/https');
-const { onDocumentCreated } = require('firebase-functions/v2/firestore');
 
 // Initialize Firebase Admin
 initializeApp();
-
-const db = getFirestore();
-// const auth = getAuth(); // Available for functions that need it
-// const storage = getStorage(); // Available for functions that need it
 
 // Import function modules
 const { analyzeResume } = require('./src/analyzeResume.js');

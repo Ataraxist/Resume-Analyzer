@@ -3,11 +3,10 @@ const { HttpsError } = require('firebase-functions/v2/https');
 
 const db = getFirestore();
 
-async function initializeJobZones(request) {
+async function initializeJobZones(_request) {
   // This function initializes the job_zones collection with all 5 Job Zones
   // Should only be run once or when Job Zone data needs updating
   
-  console.log('Initializing Job Zones collection...');
   
   const apiKey = process.env.ONET_API_KEY;
   
@@ -46,7 +45,6 @@ async function initializeJobZones(request) {
         const response = await fetch(url, { headers });
         
         if (!response.ok) {
-          console.error(`Failed to fetch Job Zone ${zoneNum}: ${response.status}`);
           errors.push(`Job Zone ${zoneNum}: ${response.status}`);
           errorCount++;
           continue;
@@ -70,11 +68,9 @@ async function initializeJobZones(request) {
         const docRef = db.collection('job_zones').doc(String(zoneNum));
         batch.set(docRef, jobZoneData);
         
-        console.log(`Prepared Job Zone ${zoneNum} for saving`);
         successCount++;
         
       } catch (error) {
-        console.error(`Error processing Job Zone ${zoneNum}:`, error);
         errors.push(`Job Zone ${zoneNum}: ${error.message}`);
         errorCount++;
       }
@@ -82,7 +78,6 @@ async function initializeJobZones(request) {
     
     // Commit the batch
     await batch.commit();
-    console.log(`Successfully initialized ${successCount} Job Zones`);
     
     return {
       success: true,
@@ -95,7 +90,6 @@ async function initializeJobZones(request) {
     };
     
   } catch (error) {
-    console.error('Failed to initialize Job Zones:', error);
     throw new HttpsError('internal', `Failed to initialize Job Zones: ${error.message}`);
   }
 }

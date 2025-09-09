@@ -12,7 +12,6 @@ async function fetchOccupation(request) {
     
     // Check if user is authenticated (optional - can be restricted to admin)
     if (!auth) {
-        console.warn('Unauthenticated fetchOccupation request');
         // Optionally restrict this to authenticated users only
         // throw new HttpsError('unauthenticated', 'Authentication required');
     }
@@ -23,7 +22,6 @@ async function fetchOccupation(request) {
         throw new HttpsError('invalid-argument', 'Occupation code is required');
     }
     
-    console.log(`Fetch occupation requested for ${code}, forceRefresh: ${forceRefresh}`);
     
     try {
         validateConfig();
@@ -37,7 +35,6 @@ async function fetchOccupation(request) {
             if (lastUpdated) {
                 const daysSinceUpdate = (Date.now() - lastUpdated.toMillis()) / (1000 * 60 * 60 * 24);
                 if (daysSinceUpdate < 7) {
-                    console.log(`Occupation ${code} was updated ${daysSinceUpdate.toFixed(1)} days ago, skipping refresh`);
                     return {
                         success: true,
                         message: 'Occupation data is up to date',
@@ -94,7 +91,6 @@ async function fetchOccupation(request) {
             }
         };
     } catch (error) {
-        console.error(`Error fetching occupation ${code}:`, error);
         await updateFetchStatus(code, 'failed', error.message);
         throw new HttpsError('internal', `Failed to fetch occupation: ${error.message}`);
     }
@@ -165,7 +161,6 @@ async function fetchAllDimensions(code, rateLimiter) {
     const fetchResults = await rateLimiter.executeMany(
         dimensionFetchers.map(d => d.fn),
         (progress) => {
-            console.log(`Fetching dimensions for ${code}: ${progress.completed}/${progress.total} (${progress.percentage}%)${progress.failedCount ? `, ${progress.failedCount} failed` : ''}`);
         },
         taskConfigs
     );
@@ -176,10 +171,8 @@ async function fetchAllDimensions(code, rateLimiter) {
         if (result.success) {
             results[dim.name] = result.data;
             if (result.attempts > 1) {
-                console.log(`${dim.name} succeeded after ${result.attempts} attempts`);
             }
         } else {
-            console.error(`Failed to fetch ${dim.name} for ${code} after ${result.attempts} attempts:`, result.error);
             results[dim.name] = null;
             
             // Track failed dimensions for potential background retry
@@ -198,7 +191,6 @@ async function fetchAllDimensions(code, rateLimiter) {
         await storeFetchFailures(code, failedDimensions);
     }
     
-    console.log(`Successfully fetched ${fetchResults.successCount}/${dimensionFetchers.length} dimensions for ${code}${fetchResults.retryableErrors ? `, ${fetchResults.retryableErrors} retryable errors` : ''}`);
     
     return results;
 }
@@ -215,9 +207,7 @@ async function storeFetchFailures(code, failedDimensions) {
             critical_failures: failedDimensions.filter(d => d.critical).length
         }, { merge: true });
         
-        console.log(`Stored ${failedDimensions.length} failed dimensions for ${code} for potential retry`);
     } catch (error) {
-        console.error('Error storing fetch failures:', error);
     }
 }
 
@@ -247,7 +237,7 @@ function transformDimensionData(data, dimensionType) {
                 importance: task.importance
             }));
             
-        case 'technologySkills':
+        case 'technologySkills': {
             const skills = [];
             for (const category of data) {
                 if (category.example) {
@@ -262,8 +252,9 @@ function transformDimensionData(data, dimensionType) {
                 }
             }
             return skills;
+        }
             
-        case 'toolsUsed':
+        case 'toolsUsed': {
             const tools = [];
             for (const category of data) {
                 if (category.example && category.example.length > 0) {
@@ -277,6 +268,7 @@ function transformDimensionData(data, dimensionType) {
                 }
             }
             return tools;
+        }
             
         default:
             // For skills, knowledge, abilities, work activities, interests, work values, work styles
@@ -311,7 +303,6 @@ async function fetchEducation(code) {
             percentage: edu.percentage_of_respondents
         }));
     } catch (error) {
-        console.error(`Error fetching education for ${code}:`, error);
         return [];
     }
 }
@@ -334,7 +325,6 @@ async function fetchJobZone(code) {
         // Just return the job zone code
         return data.code || null;
     } catch (error) {
-        console.error(`Error fetching job zone for ${code}:`, error);
         return null;
     }
 }
@@ -430,7 +420,6 @@ async function saveOccupationData(code, mainDetails, dimensions) {
     // Full job zone details are in the job_zones collection
     
     await batch.commit();
-    console.log(`Saved complete occupation data for ${code} to Firestore`);
 }
 
 module.exports = { fetchOccupation };

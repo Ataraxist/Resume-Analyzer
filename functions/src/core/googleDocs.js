@@ -8,12 +8,11 @@ const { extractFromBuffer } = require('./extractor');
  * @param {string} accessToken - OAuth2 access token (not used in this implementation)
  * @returns {Promise<{text: string, title: string}>} - Document text and title
  */
-async function fetchGoogleDoc(documentId, accessToken = null) {
+async function fetchGoogleDoc(documentId, _accessToken = null) {
   try {
     // Try PDF export first (preserves headers/footers)
     const pdfUrl = `https://docs.google.com/document/d/${documentId}/export?format=pdf`;
     
-    console.log('Fetching Google Doc as PDF to preserve headers/footers:', pdfUrl);
     
     try {
       const pdfResponse = await axios.get(pdfUrl, {
@@ -30,7 +29,6 @@ async function fetchGoogleDoc(documentId, accessToken = null) {
       const buffer = Buffer.from(pdfResponse.data);
       const text = await extractFromBuffer(buffer, 'document.pdf');
       
-      console.log('Successfully fetched Google Doc as PDF, text length:', text.length);
       
       return {
         text: text,
@@ -38,8 +36,6 @@ async function fetchGoogleDoc(documentId, accessToken = null) {
       };
       
     } catch (pdfError) {
-      console.warn('PDF export failed, trying TXT (headers/footers may be lost):', pdfError.message);
-      
       // Fall back to TXT export if PDF fails
       const txtUrl = `https://docs.google.com/document/d/${documentId}/export?format=txt`;
       
@@ -57,7 +53,6 @@ async function fetchGoogleDoc(documentId, accessToken = null) {
         throw new Error('No text found in Google Doc');
       }
       
-      console.log('Successfully fetched Google Doc as TXT (fallback), text length:', txtResponse.data.length);
       
       return {
         text: txtResponse.data,
@@ -66,8 +61,6 @@ async function fetchGoogleDoc(documentId, accessToken = null) {
     }
     
   } catch (error) {
-    console.error('Error fetching Google Doc:', error.response?.status, error.message);
-    
     // Provide user-friendly error messages
     if (error.response?.status === 403) {
       throw new Error('Document is not publicly accessible. Please ensure the document is shared with "Anyone with the link can view".');

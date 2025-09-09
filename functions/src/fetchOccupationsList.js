@@ -3,16 +3,14 @@ const { getFirestore } = require('firebase-admin/firestore');
 const db = getFirestore();
 const ONET_BASE_URL = 'https://api-v2.onetcenter.org';
 
-async function fetchOccupationsList(request) {
+async function fetchOccupationsList(_request) {
   // This function is called automatically when sync is needed
   // Allow unauthenticated calls - don't check auth
   
-  console.log('Fetching occupations list from O*NET...');
   
   const apiKey = process.env.ONET_API_KEY;
   
   if (!apiKey) {
-    console.error('O*NET API key not configured');
     return { error: 'O*NET API key not configured' };
   }
 
@@ -43,7 +41,6 @@ async function fetchOccupationsList(request) {
     
     // Check if update is needed
     if (currentCount === totalOccupations) {
-      console.log(`Occupation count unchanged (${currentCount}), updating timestamp only`);
       await metadataRef.set({
         last_sync: new Date(),
         occupation_count: currentCount,
@@ -57,7 +54,6 @@ async function fetchOccupationsList(request) {
       };
     }
     
-    console.log(`Count changed from ${currentCount} to ${totalOccupations}, fetching full list...`);
     
     // Fetch all occupations
     const occupationsResponse = await fetch(
@@ -76,6 +72,11 @@ async function fetchOccupationsList(request) {
 
     // Process occupations in batches (Firestore limit is 500 per batch)
     for (const occupation of occupationsData.occupation || []) {
+      // Skip "All Other" occupations as they don't have O*NET data
+      if (occupation.title?.includes('All Other')) {
+        continue;
+      }
+      
       const occupationRef = db.collection('occupations').doc(occupation.code);
       
       batch.set(occupationRef, {
@@ -95,7 +96,6 @@ async function fetchOccupationsList(request) {
       // Commit batch every 400 documents and create a new batch
       if (batchCount === 400) {
         await batch.commit();
-        console.log(`Synced ${count} occupations...`);
         batch = db.batch(); // Create a new batch
         batchCount = 0;
       }
@@ -117,7 +117,6 @@ async function fetchOccupationsList(request) {
       message: `Updated from ${currentCount} to ${count} occupations`
     }, { merge: true });
 
-    console.log(`O*NET sync completed. Updated from ${currentCount} to ${count} occupations.`);
     return { 
       success: true, 
       previousCount: currentCount,
@@ -126,7 +125,6 @@ async function fetchOccupationsList(request) {
     };
 
   } catch (error) {
-    console.error('O*NET sync error:', error);
     
     // Log error to Firestore
     await db.collection('system').doc('sync_metadata').set({

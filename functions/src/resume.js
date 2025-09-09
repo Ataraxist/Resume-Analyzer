@@ -64,7 +64,7 @@ async function resume(request, response) {
         metadata.source = 'direct_parse';
         break;
 
-      case 'file':
+      case 'file': {
         // File from Firebase Storage
         if (!filePath) {
           throw new HttpsError('invalid-argument', 'File path is required for file input');
@@ -89,8 +89,9 @@ async function resume(request, response) {
           fileType: 'application/octet-stream'
         };
         break;
+      }
 
-      case 'google_docs':
+      case 'google_docs': {
         // Google Docs import
         if (!documentId) {
           throw new HttpsError('invalid-argument', 'Document ID or URL is required for Google Docs input');
@@ -109,6 +110,7 @@ async function resume(request, response) {
           documentTitle: docData.title
         };
         break;
+      }
 
       default:
         throw new HttpsError('invalid-argument', `Unsupported input type: ${inputType}`);
@@ -119,13 +121,11 @@ async function resume(request, response) {
       throw new HttpsError('invalid-argument', 'No text content found to parse');
     }
 
-    console.log('Starting resume parsing with streaming');
 
     // Define the streaming callback that always sends chunks to the client
     const streamCallback = (chunkData) => {
       // Pass through the entire chunk without modifying it
       response.sendChunk(chunkData);
-      console.log(`Sent chunk: ${chunkData.type} - ${chunkData.field || chunkData.category || ''}`);
     };
 
     // Parse the resume with streaming support
@@ -146,7 +146,6 @@ async function resume(request, response) {
     };
 
   } catch (error) {
-    console.error('Resume processing error:', error);
     
     // Handle specific error types
     if (error instanceof HttpsError) {

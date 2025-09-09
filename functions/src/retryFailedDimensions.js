@@ -10,7 +10,7 @@ const db = getFirestore();
  * Can be triggered manually or scheduled
  */
 async function retryFailedDimensions(request) {
-    const { data, auth } = request;
+    const { data } = request;
     const { code, dimensions } = data;
     
     if (!code) {
@@ -47,7 +47,6 @@ async function retryFailedDimensions(request) {
             };
         }
         
-        console.log(`Retrying ${dimensionsToRetry.length} failed dimensions for ${code}`);
         
         // Create rate limiter with more aggressive retry settings
         const rateLimiter = new RateLimiter(
@@ -97,7 +96,6 @@ async function retryFailedDimensions(request) {
         const retryResults = await rateLimiter.executeMany(
             retryTasks,
             (progress) => {
-                console.log(`Retrying dimensions for ${code}: ${progress.completed}/${progress.total}`);
             }
         );
         
@@ -160,7 +158,6 @@ async function retryFailedDimensions(request) {
         };
         
     } catch (error) {
-        console.error(`Error retrying dimensions for ${code}:`, error);
         throw new HttpsError('internal', `Failed to retry dimensions: ${error.message}`);
     }
 }
@@ -228,7 +225,6 @@ async function fetchEducation(code) {
             percentage: edu.percentage_of_respondents
         }));
     } catch (error) {
-        console.error(`Error fetching education for ${code}:`, error);
         throw error;
     }
 }
@@ -250,7 +246,6 @@ async function fetchJobZone(code) {
         const data = await response.json();
         return data.code || null;
     } catch (error) {
-        console.error(`Error fetching job zone for ${code}:`, error);
         throw error;
     }
 }
@@ -310,7 +305,7 @@ function transformDimensionData(data, dimensionType) {
                 importance: task.importance
             }));
             
-        case 'technologySkills':
+        case 'technologySkills': {
             const skills = [];
             for (const category of data) {
                 if (category.example) {
@@ -325,8 +320,9 @@ function transformDimensionData(data, dimensionType) {
                 }
             }
             return skills;
+        }
             
-        case 'toolsUsed':
+        case 'toolsUsed': {
             const tools = [];
             for (const category of data) {
                 if (category.example && category.example.length > 0) {
@@ -340,6 +336,7 @@ function transformDimensionData(data, dimensionType) {
                 }
             }
             return tools;
+        }
             
         default:
             // For skills, knowledge, abilities, work activities, interests, work values, work styles

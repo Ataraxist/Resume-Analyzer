@@ -25,9 +25,8 @@ function cleanForFirestore(obj) {
 
 async function getOccupationDetails(request) {
     // Extract data and auth from the v2 request object
-    const { data, auth } = request;
+    const { data } = request;
     
-    console.log('Getting occupation details for:', data?.code);
     
     const { code } = data;
     
@@ -37,6 +36,20 @@ async function getOccupationDetails(request) {
     
     try {
         validateConfig();
+        
+        // Check if this is an "All Other" occupation by fetching basic info first
+        const occupationRef = db.collection('occupations').doc(code);
+        const occupationDoc = await occupationRef.get();
+        
+        if (occupationDoc.exists) {
+            const occupationData = occupationDoc.data();
+            if (occupationData.title?.includes('All Other')) {
+                throw new HttpsError(
+                    'invalid-argument', 
+                    '"All Other" occupations are umbrella categories without specific O*NET data. Please select a more specific occupation.'
+                );
+            }
+        }
         
         // Check if we have cached details in Firestore
         const cacheKey = `occupation_details_${code}`;
@@ -50,13 +63,27 @@ async function getOccupationDetails(request) {
             const maxCacheAge = 24 * 60 * 60 * 1000; // 24 hours
             
             if (cacheAge < maxCacheAge) {
-                console.log(`Returning cached data for ${code}`);
-                return cachedData.data;
+                
+                // Verify any empty dimensions before returning
+                const verifiedData = await verifyEmptyDimensions(code, cachedData.data);
+                
+                // If verification found new data, update the cache
+                if (JSON.stringify(verifiedData) !== JSON.stringify(cachedData.data)) {
+                    const cleanVerifiedData = cleanForFirestore(verifiedData);
+                    if (cleanVerifiedData) {
+                        await cacheRef.set({
+                            data: cleanVerifiedData,
+                            timestamp: Date.now(),
+                            code: code
+                        });
+                    }
+                }
+                
+                return verifiedData;
             }
         }
         
         // Fetch fresh data from O*NET API
-        console.log(`Fetching fresh data for ${code} from O*NET API`);
         const rateLimiter = new RateLimiter(
             onetConfig.rateLimit.maxConcurrent,
             onetConfig.rateLimit.delayMs,
@@ -78,6 +105,9 @@ async function getOccupationDetails(request) {
         const fetchMetadata = dimensions._metadata;
         delete dimensions._metadata;
         
+        // Verify any empty dimensions that might have failed silently
+        const verifiedDimensions = await verifyEmptyDimensions(code, dimensions);
+        
         // Combine all data
         const fullDetails = {
             occupation: {
@@ -90,7 +120,7 @@ async function getOccupationDetails(request) {
                 numerous_openings: mainDetails.bright_outlook?.some(b => b.category === 'numerous_openings'),
                 updated_year: mainDetails.updated?.year
             },
-            ...dimensions,
+            ...verifiedDimensions,
             fetchStatus: {
                 complete: fetchMetadata && !fetchMetadata.partialData,
                 partialData: fetchMetadata?.partialData || false,
@@ -100,20 +130,10 @@ async function getOccupationDetails(request) {
             }
         };
         
-        console.log(`Full details for ${code} before cleaning:`, {
-            occupation: 'present',
-            dimensionKeys: Object.keys(dimensions),
-            dimensionSizes: Object.entries(dimensions).map(([k, v]) => `${k}: ${Array.isArray(v) ? v.length : typeof v}`)
-        });
         
         // Cache the results (remove any null/undefined values to avoid Firestore errors)
         const cleanDetails = cleanForFirestore(fullDetails);
         
-        console.log(`Clean details for ${code} after cleaning:`, cleanDetails ? {
-            hasOccupation: !!cleanDetails.occupation,
-            keys: Object.keys(cleanDetails),
-            sizes: Object.entries(cleanDetails).map(([k, v]) => `${k}: ${Array.isArray(v) ? v.length : typeof v}`)
-        } : 'null');
         
         if (cleanDetails) {
             await cacheRef.set({
@@ -124,11 +144,11 @@ async function getOccupationDetails(request) {
         }
         
         // Also save to Firestore subcollections for permanent storage
-        await saveToFirestore(code, fullDetails);
+        // Use verifiedDimensions to ensure we're saving the verified data
+        await saveToFirestore(code, { ...fullDetails, ...verifiedDimensions });
         
         return fullDetails;
     } catch (error) {
-        console.error('Error fetching occupation details:', error);
         throw new HttpsError('internal', `Failed to fetch occupation details: ${error.message}`);
     }
 }
@@ -144,6 +164,83 @@ async function fetchOccupationMain(code) {
     }
     
     return await response.json();
+}
+
+// Helper function to verify empty dimensions by re-fetching them
+async function verifyEmptyDimensions(code, dimensions) {
+    // Define which dimensions should be verified when empty
+    // These are dimensions that typically should have data
+    const dimensionsToVerify = ['tasks', 'skills', 'abilities', 'knowledge', 'workActivities'];
+    
+    const emptyDimensions = [];
+    const verificationResults = {};
+    
+    // Check which dimensions are empty and should be verified
+    for (const dimName of dimensionsToVerify) {
+        const dimData = dimensions[dimName];
+        if (!dimData || (Array.isArray(dimData) && dimData.length === 0)) {
+            emptyDimensions.push(dimName);
+        }
+    }
+    
+    if (emptyDimensions.length === 0) {
+        // No empty dimensions to verify
+        return dimensions;
+    }
+    
+    
+    // Create a rate limiter for verification requests
+    const rateLimiter = new RateLimiter(3, 300, {
+        maxRetries: 2,
+        initialDelay: 200,
+        maxDelay: 2000,
+        backoffMultiplier: 2
+    });
+    
+    // Build fetchers for empty dimensions only
+    const verificationFetchers = emptyDimensions.map(dimName => {
+        switch (dimName) {
+            case 'tasks':
+                return { name: dimName, fn: () => fetchDimension(code, 'tasks') };
+            case 'skills':
+                return { name: dimName, fn: () => fetchDimension(code, 'skills') };
+            case 'abilities':
+                return { name: dimName, fn: () => fetchDimension(code, 'abilities') };
+            case 'knowledge':
+                return { name: dimName, fn: () => fetchDimension(code, 'knowledge') };
+            case 'workActivities':
+                return { name: dimName, fn: () => fetchDimension(code, 'workActivities') };
+            default:
+                return null;
+        }
+    }).filter(f => f !== null);
+    
+    // Execute verification fetches
+    const fetchResults = await rateLimiter.executeMany(
+        verificationFetchers.map(f => f.fn),
+        (progress) => {
+        }
+    );
+    
+    // Process verification results
+    let updatedCount = 0;
+    verificationFetchers.forEach((fetcher, index) => {
+        const result = fetchResults.results[index];
+        if (result.success && result.data && Array.isArray(result.data) && result.data.length > 0) {
+            // Found data for previously empty dimension
+            verificationResults[fetcher.name] = result.data;
+            updatedCount++;
+        } else {
+            // Dimension is confirmed to be empty
+        }
+    });
+    
+    if (updatedCount > 0) {
+        // Return merged dimensions with verified data
+        return { ...dimensions, ...verificationResults };
+    }
+    
+    return dimensions;
 }
 
 async function fetchAllDimensions(code, rateLimiter) {
@@ -179,7 +276,6 @@ async function fetchAllDimensions(code, rateLimiter) {
     const fetchResults = await rateLimiter.executeMany(
         dimensionFetchers.map(d => d.fn),
         (progress) => {
-            console.log(`Fetching dimensions for ${code}: ${progress.completed}/${progress.total} (${progress.percentage}%)${progress.failedCount ? `, ${progress.failedCount} failed` : ''}`);
         },
         taskConfigs
     );
@@ -191,10 +287,8 @@ async function fetchAllDimensions(code, rateLimiter) {
             results[dim.name] = result.data;
             metadata.successfulFetches++;
             if (result.attempts > 1) {
-                console.log(`${dim.name} succeeded after ${result.attempts} attempts`);
             }
         } else {
-            console.error(`Failed to fetch ${dim.name} for ${code} after ${result.attempts} attempts:`, result.error);
             results[dim.name] = dim.name === 'education' ? [] : null;
             
             metadata.failedFetches.push({
@@ -215,7 +309,6 @@ async function fetchAllDimensions(code, rateLimiter) {
         await storeFetchMetadata(code, metadata);
     }
     
-    console.log(`Fetch summary for ${code}: ${metadata.successfulFetches}/${metadata.totalDimensions} successful${metadata.partialData ? ' (partial data)' : ''}`);
     
     return { ...results, _metadata: metadata };
 }
@@ -232,9 +325,7 @@ async function storeFetchMetadata(code, metadata) {
             retryableFailures: metadata.failedFetches.filter(f => f.retryable).length
         }, { merge: true });
         
-        console.log(`Stored fetch metadata for ${code}: ${metadata.failedFetches.length} failures`);
     } catch (error) {
-        console.error('Error storing fetch metadata:', error);
     }
 }
 
@@ -335,7 +426,6 @@ async function fetchEducation(code) {
             percentage: edu.percentage_of_respondents
         }));
     } catch (error) {
-        console.error(`Error fetching education for ${code}:`, error);
         return [];
     }
 }
@@ -360,7 +450,6 @@ async function fetchJobZone(code) {
         // The full details are stored in the job_zones collection
         return data.code || null;
     } catch (error) {
-        console.error(`Error fetching job zone for ${code}:`, error);
         return null;
     }
 }
@@ -446,15 +535,14 @@ async function saveToFirestore(code, details) {
                     ).trim();
                     
                     // Sanitize the ID for Firestore - replace invalid characters
-                    // Firestore document IDs cannot contain: / \ . # [ ] $
-                    docId = docId.replace(/[\/\\\.#\[\]$]/g, '_');
+                    // Firestore document IDs cannot contain: / \ . # [ $ or ]
+                    docId = docId.replace(/[/\\.#[\]$]/g, '_');
                     
                     // Firestore document IDs cannot be empty strings
                     // Also handle the case where ID is '0' which is valid but would be falsy
                     if (!docId) {
                         // Generate a fallback ID
                         docId = `${subcol.name}_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-                        console.log(`Generated fallback ID for ${subcol.name}: ${docId}`);
                     }
                                  
                     const docRef = occupationRef.collection(subcol.name).doc(docId);
@@ -470,7 +558,6 @@ async function saveToFirestore(code, details) {
     }
     
     await batch.commit();
-    console.log(`Saved occupation details for ${code} to Firestore`);
 }
 
 module.exports = { getOccupationDetails };

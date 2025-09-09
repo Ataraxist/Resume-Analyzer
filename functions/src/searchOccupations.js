@@ -7,18 +7,10 @@ async function searchOccupations(request) {
   // Extract data and auth from the v2 request object
   const { data, auth } = request;
   
-  // Log auth state for debugging
-  console.log('Auth context:', {
-    hasAuth: !!auth,
-    uid: auth?.uid,
-    isAnonymous: auth?.token?.firebase?.sign_in_provider === 'anonymous'
-  });
   
-  console.log('Search data received:', data ? { query: data.query, limit: data.limit, offset: data.offset, hasFilters: !!data.filters } : 'No data');
   
   // Validate that data was provided
   if (!data) {
-    console.error('No data provided to searchOccupations function');
     throw new HttpsError('invalid-argument', 'Request data is required');
   }
   
@@ -29,23 +21,25 @@ async function searchOccupations(request) {
     filters = {}
   } = data;
 
-  console.log('Search parameters extracted:', { query, limit, offset, filters });
 
   try {
     let occupationsRef = db.collection('occupations');
     
     // Apply search query if provided
     if (query) {
-      console.log(`Searching for: "${query}"`);
       // Firestore doesn't support full-text search natively
       // For production, consider using Algolia or ElasticSearch
       // For now, we'll fetch all and filter in memory (not ideal for large datasets)
       const snapshot = await occupationsRef.get();
-      console.log(`Fetched ${snapshot.size} occupations from Firestore`);
       
       const results = snapshot.docs
         .map(doc => ({ id: doc.id, ...doc.data() }))
         .filter(occ => {
+          // Exclude "All Other" occupations as they don't have O*NET data
+          if (occ.title?.includes('All Other')) {
+            return false;
+          }
+          
           const searchLower = query.toLowerCase();
           return (
             occ.title?.toLowerCase().includes(searchLower) ||
@@ -54,7 +48,6 @@ async function searchOccupations(request) {
           );
         });
 
-      console.log(`Found ${results.length} matches for "${query}"`);
 
       // Apply filters
       let filtered = results;
@@ -107,16 +100,17 @@ async function searchOccupations(request) {
       
       const snapshot = await query.get();
       
+      // Filter out "All Other" occupations from results
+      const occupations = snapshot.docs
+        .map(doc => ({ id: doc.id, ...doc.data() }))
+        .filter(occ => !occ.title?.includes('All Other'));
+      
       return {
-        occupations: snapshot.docs.map(doc => ({
-          id: doc.id,
-          ...doc.data()
-        })),
+        occupations: occupations,
         hasMore: snapshot.docs.length === limit
       };
     }
   } catch (error) {
-    console.error('Search error:', error);
     throw new HttpsError('internal', 'Failed to search occupations');
   }
 }
