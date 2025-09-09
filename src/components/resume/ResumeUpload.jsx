@@ -1,14 +1,28 @@
 import { useCallback, useState } from 'react';
 import { useDropzone } from 'react-dropzone';
 import { Upload, FileText, X, Link, Globe } from 'lucide-react';
+import toastService from '../../services/toastService';
 
 function ResumeUpload({ onUpload, onGoogleDocsImport }) {
   const [activeTab, setActiveTab] = useState('file');
   const [googleDocsUrl, setGoogleDocsUrl] = useState('');
   const [urlError, setUrlError] = useState('');
   const [isImporting, setIsImporting] = useState(false);
-  const onDrop = useCallback((acceptedFiles) => {
+  const onDrop = useCallback((acceptedFiles, fileRejections) => {
+    if (fileRejections.length > 0) {
+      const rejection = fileRejections[0];
+      if (rejection.errors[0]?.code === 'file-too-large') {
+        toastService.error('File size exceeds 10MB limit. Please use a smaller file.');
+      } else if (rejection.errors[0]?.code === 'file-invalid-type') {
+        toastService.error('Please upload a PDF, DOCX, or TXT file.');
+      } else {
+        toastService.error('Invalid file. Please try a different file.');
+      }
+      return;
+    }
+    
     if (acceptedFiles.length > 0) {
+      toastService.info(`Processing ${acceptedFiles[0].name}...`);
       onUpload(acceptedFiles[0]);
     }
   }, [onUpload]);
@@ -36,20 +50,25 @@ function ResumeUpload({ onUpload, onGoogleDocsImport }) {
     setUrlError('');
     
     if (!googleDocsUrl.trim()) {
+      toastService.warning('Please enter a Google Docs URL');
       setUrlError('Please enter a Google Docs URL');
       return;
     }
     
     if (!validateGoogleDocsUrl(googleDocsUrl)) {
+      toastService.error('Please enter a valid Google Docs URL');
       setUrlError('Please enter a valid Google Docs URL');
       return;
     }
     
     setIsImporting(true);
+    toastService.info('Importing from Google Docs...');
     try {
       await onGoogleDocsImport(googleDocsUrl);
       setGoogleDocsUrl('');
+      toastService.success('Google Doc imported successfully');
     } catch (error) {
+      // Error is already handled by UploadPage with toast
       setUrlError(error.message);
     } finally {
       setIsImporting(false);

@@ -1,17 +1,20 @@
 import { Link } from 'react-router-dom';
 import { useState } from 'react';
-import { Compass, User, LogOut, ChevronDown, BarChart3 } from 'lucide-react';
+import { Compass, User, LogOut, ChevronDown, History } from 'lucide-react';
 import { useAuth } from '../../contexts/FirebaseAuthContext';
+import AuthModal from '../auth/AuthModal';
 
 function Header() {
-  const { user, logout, isAuthenticated } = useAuth();
+  const { user, logout, isAuthenticated, isAnonymous } = useAuth();
   const [showUserMenu, setShowUserMenu] = useState(false);
+  const [showAuthModal, setShowAuthModal] = useState(false);
   
   const handleLogout = () => {
     logout();
   };
   
   return (
+    <>
     <header className="bg-white shadow-sm border-b border-gray-200">
       <div className="container mx-auto px-4">
         <div className="flex items-center justify-between h-16">
@@ -47,54 +50,57 @@ function Header() {
                     onClick={() => setShowUserMenu(false)}
                   >
                     <span className="flex items-center">
-                      <BarChart3 className="h-4 w-4 mr-2" />
-                      My History
+                      <History className="h-4 w-4 mr-2" />
+                      Analysis History
                     </span>
                   </Link>
                   
-                  <Link
-                    to="/profile"
-                    className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
-                    onClick={() => setShowUserMenu(false)}
-                  >
-                    <span className="flex items-center">
-                      <User className="h-4 w-4 mr-2" />
-                      Profile
-                    </span>
-                  </Link>
-                  
-                  <button
-                    onClick={handleLogout}
-                    className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
-                  >
-                    <span className="flex items-center">
-                      <LogOut className="h-4 w-4 mr-2" />
-                      Sign Out
-                    </span>
-                  </button>
+                  {isAnonymous ? (
+                    <button
+                      onClick={() => {
+                        setShowUserMenu(false);
+                        setShowAuthModal(true);
+                      }}
+                      className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+                    >
+                      <span className="flex items-center">
+                        <User className="h-4 w-4 mr-2" />
+                        Sign In / Sign Up
+                      </span>
+                    </button>
+                  ) : (
+                    <button
+                      onClick={handleLogout}
+                      className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+                    >
+                      <span className="flex items-center">
+                        <LogOut className="h-4 w-4 mr-2" />
+                        Sign Out
+                      </span>
+                    </button>
+                  )}
                 </div>
               )}
               </div>
             ) : (
-              <div className="flex items-center space-x-3">
-                <Link
-                  to="/login"
-                  className="px-4 py-2 text-sm font-medium text-gray-700 hover:text-primary-600 transition-colors"
-                >
-                  Sign In
-                </Link>
-                <Link
-                  to="/signup"
-                  className="px-4 py-2 text-sm font-medium text-white bg-primary-600 rounded-md hover:bg-primary-700 transition-colors"
-                >
-                  Sign Up
-                </Link>
-              </div>
+              <button
+                onClick={() => setShowAuthModal(true)}
+                className="px-4 py-2 text-sm font-medium text-white bg-primary-600 rounded-md hover:bg-primary-700 transition-colors"
+              >
+                Sign In / Sign Up
+              </button>
             )}
           </div>
         </div>
       </div>
     </header>
+    
+    {/* Auth Modal */}
+    <AuthModal 
+      isOpen={showAuthModal}
+      onClose={() => setShowAuthModal(false)}
+    />
+    </>
   );
 }
 

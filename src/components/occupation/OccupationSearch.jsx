@@ -27,7 +27,6 @@ function OccupationSearch({ onSelect, selectedOccupation }) {
         setOccupations(results.occupations);
         setShowResults(true);
       } catch (error) {
-        console.error('Search failed:', error);
         setOccupations([]);
       } finally {
         setIsLoading(false);

@@ -1,6 +1,12 @@
 import { CheckCircle, XCircle, Loader2, Upload } from 'lucide-react';
 
-function ProcessingStatus({ status, error, onReset }) {
+function ProcessingStatus({ 
+  status, 
+  error, 
+  onReset,
+  currentOperation,
+  progress = 0
+}) {
   const statusConfig = {
     uploading: {
       icon: Upload,
@@ -12,7 +18,9 @@ function ProcessingStatus({ status, error, onReset }) {
       icon: Loader2,
       color: 'primary',
       title: 'Processing Resume',
-      description: 'AI is extracting and structuring your resume data...'
+      description: currentOperation 
+        ? `Processing ${currentOperation}...`
+        : 'AI is extracting and structuring your resume data...'
     },
     completed: {
       icon: CheckCircle,
@@ -51,8 +59,17 @@ function ProcessingStatus({ status, error, onReset }) {
         </p>
         
         {status === 'processing' && (
-          <div className="w-full bg-gray-200 rounded-full h-2">
-            <div className="bg-primary-600 h-2 rounded-full animate-pulse" style={{ width: '60%' }} />
+          <div className="w-full">
+            <div className="flex justify-between text-xs text-gray-600 mb-1">
+              <span>Progress</span>
+              <span>{Math.round(progress)}%</span>
+            </div>
+            <div className="w-full bg-gray-200 rounded-full h-2">
+              <div 
+                className="bg-primary-600 h-2 rounded-full transition-all duration-300 ease-out" 
+                style={{ width: `${progress}%` }} 
+              />
+            </div>
           </div>
         )}
         

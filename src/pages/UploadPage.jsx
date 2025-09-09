@@ -4,53 +4,27 @@ import ResumeUpload from '../components/resume/ResumeUpload';
 import ProcessingStatus from '../components/resume/ProcessingStatus';
 import ResumeViewer from '../components/resume/ResumeViewer';
 import PreviousResumes from '../components/resume/PreviousResumes';
+import StreamingStatusDisplay from '../components/common/StreamingStatusDisplay';
 import firebaseResumeService from '../services/firebaseResumeService';
 import { useAuth } from '../contexts/FirebaseAuthContext';
-import { Briefcase, ArrowLeft, Upload, Info } from 'lucide-react';
-
-// Whimsical loading messages
-const loadingMessages = [
-  'Reticulating splines...',
-  'Calibrating quantum flux capacitors...',
-  'Harmonizing temporal matrices...',
-  'Initializing synergy protocols...',
-  'Defragmenting neural pathways...',
-  'Optimizing blockchain parameters...',
-  'Synthesizing digital essence...',
-  'Triangulating career vectors...',
-  'Compiling professional aura...',
-  'Reversing polarity of skill nodes...',
-  'Energizing talent crystals...',
-  'Aligning chakra databases...',
-  'Parsing excellence wavelengths...',
-  'Quantizing achievement particles...',
-  'Virtualizing competency cores...',
-  'Bootstrapping wisdom engines...',
-  'Normalizing experience gradients...',
-  'Tokenizing professional karma...',
-  'Computing destiny algorithms...',
-  'Activating neural handshake...',
-  'Establishing quantum entanglement...',
-  'Downloading more RAM...',
-  'Consulting the ancient scrolls...',
-  'Appeasing the algorithm gods...',
-  'Charging talent capacitors...'
-];
+import { getExpectedParsingFields } from '../utils/statusFormatters';
+import toastService from '../services/toastService';
+import { logError } from '../utils/errorHandler';
+import { Briefcase, ArrowLeft, Upload } from 'lucide-react';
 
 function UploadPage() {
   const navigate = useNavigate();
   const location = useLocation();
-  const { user } = useAuth();
+  const { user, createAnonymousSession } = useAuth();
   const [selectedOccupation, setSelectedOccupation] = useState(null);
   const [resumeId, setResumeId] = useState(null);
   const [processingStatus, setProcessingStatus] = useState(null);
   const [structuredData, setStructuredData] = useState(null);
-  const [error, setError] = useState(null);
   const [refreshResumes, setRefreshResumes] = useState(0);
-  const [currentStatus, setCurrentStatus] = useState('');
-  const [showTooltip, setShowTooltip] = useState(false);
   const [parseProgress, setParseProgress] = useState(0);
   const [completedFields, setCompletedFields] = useState([]);
+  const [currentParsingField, setCurrentParsingField] = useState(null);
+  const [pendingFields, setPendingFields] = useState([]);
   
   useEffect(() => {
     // Check if occupation was selected
@@ -66,34 +40,27 @@ function UploadPage() {
   }, [location, navigate]);
 
 
-  // Rotate through whimsical messages during processing
+  // Set up expected fields when processing starts
   useEffect(() => {
     if (processingStatus === 'processing') {
-      // Start with a random message
-      let messageIndex = Math.floor(Math.random() * loadingMessages.length);
-      setCurrentStatus(loadingMessages[messageIndex]);
-      
-      // Rotate through messages
-      const timer = setInterval(() => {
-        messageIndex = (messageIndex + 1) % loadingMessages.length;
-        setCurrentStatus(loadingMessages[messageIndex]);
-      }, 2500); // Change every 2.5 seconds
-      
-      return () => clearInterval(timer);
-    } else {
-      setCurrentStatus('');
+      const expectedFields = getExpectedParsingFields();
+      setPendingFields(expectedFields.filter(field => !completedFields.includes(field)));
     }
   }, [processingStatus]);
   
   const handleUpload = async (file) => {
     try {
-      setError(null);
       setProcessingStatus('uploading');
       
-      // Upload resume
-      if (!user) {
-        setError('Please log in to upload resumes');
-        return;
+      // Create anonymous session if no user exists
+      let currentUser = user;
+      if (!currentUser) {
+        const result = await createAnonymousSession();
+        if (!result.success) {
+          setProcessingStatus(null);
+          return;
+        }
+        currentUser = result.user;
       }
       
       // Initialize empty structure for progressive updates
@@ -109,11 +76,14 @@ function UploadPage() {
       });
       
       setProcessingStatus('processing');
+      setCompletedFields([]);
+      setCurrentParsingField(null);
+      setPendingFields(getExpectedParsingFields());
       
       // Upload and process resume with streaming
       const result = await firebaseResumeService.uploadResume(
         file,
-        user.uid,
+        currentUser.uid,
         (chunk) => {
           // Handle different types of streaming chunks
           if (chunk.type === 'field_completed') {
@@ -123,8 +93,17 @@ function UploadPage() {
               [chunk.field]: chunk.value
             }));
             setParseProgress(chunk.progress || 0);
-            if (chunk.completedFields) {
-              setCompletedFields(chunk.completedFields);
+            
+            // Update field tracking
+            setCompletedFields(prev => [...prev, chunk.field]);
+            setCurrentParsingField(null);
+            setPendingFields(prev => prev.filter(f => f !== chunk.field));
+            
+            // Set next field as current if available
+            const expectedFields = getExpectedParsingFields();
+            const nextFieldIndex = expectedFields.indexOf(chunk.field) + 1;
+            if (nextFieldIndex < expectedFields.length) {
+              setCurrentParsingField(expectedFields[nextFieldIndex]);
             }
           } else if (chunk.type === 'array_item_completed') {
             // Add item to array (experience, education)
@@ -136,6 +115,11 @@ function UploadPage() {
               ]
             }));
             setParseProgress(chunk.progress || 0);
+            
+            // Update current parsing field
+            if (!currentParsingField || currentParsingField !== chunk.field) {
+              setCurrentParsingField(chunk.field);
+            }
           } else if (chunk.type === 'skill_added') {
             // Add individual skill to category
             setStructuredData(prev => ({
@@ -149,6 +133,11 @@ function UploadPage() {
               }
             }));
             setParseProgress(chunk.progress || 0);
+            
+            // Update current parsing field
+            if (!currentParsingField || currentParsingField !== 'skills') {
+              setCurrentParsingField('skills');
+            }
           } else if (chunk.type === 'achievement_added') {
             // Add achievement to category
             setStructuredData(prev => ({
@@ -162,6 +151,11 @@ function UploadPage() {
               }
             }));
             setParseProgress(chunk.progress || 0);
+            
+            // Update current parsing field
+            if (!currentParsingField || currentParsingField !== 'achievements') {
+              setCurrentParsingField('achievements');
+            }
           }
         }
       );
@@ -174,19 +168,29 @@ function UploadPage() {
         setParseProgress(100);
         setRefreshResumes(prev => prev + 1);
       } else {
-        setError('Failed to process resume');
         setProcessingStatus('failed');
       }
-    } catch (err) {
-      setError(err.message);
+    } catch (error) {
+      logError(error, 'upload', { fileName: file?.name });
+      toastService.error(error, 'upload');
       setProcessingStatus('failed');
     }
   };
   
   const handleGoogleDocsImport = async (url) => {
     try {
-      setError(null);
       setProcessingStatus('uploading');
+      
+      // Create anonymous session if no user exists
+      let currentUser = user;
+      if (!currentUser) {
+        const result = await createAnonymousSession();
+        if (!result.success) {
+          setProcessingStatus(null);
+          return;
+        }
+        currentUser = result.user;
+      }
       
       // Initialize empty structured data for progressive updates
       setStructuredData({
@@ -201,6 +205,9 @@ function UploadPage() {
       });
       
       setProcessingStatus('processing');
+      setCompletedFields([]);
+      setCurrentParsingField(null);
+      setPendingFields(getExpectedParsingFields());
       
       // Import from Google Docs with streaming
       const importResult = await firebaseResumeService.importFromGoogleDocs(
@@ -215,8 +222,17 @@ function UploadPage() {
               [chunk.field]: chunk.value
             }));
             setParseProgress(chunk.progress || 0);
-            if (chunk.completedFields) {
-              setCompletedFields(chunk.completedFields);
+            
+            // Update field tracking
+            setCompletedFields(prev => [...prev, chunk.field]);
+            setCurrentParsingField(null);
+            setPendingFields(prev => prev.filter(f => f !== chunk.field));
+            
+            // Set next field as current if available
+            const expectedFields = getExpectedParsingFields();
+            const nextFieldIndex = expectedFields.indexOf(chunk.field) + 1;
+            if (nextFieldIndex < expectedFields.length) {
+              setCurrentParsingField(expectedFields[nextFieldIndex]);
             }
           } else if (chunk.type === 'array_item_completed') {
             // Add item to array (experience, education)
@@ -228,6 +244,11 @@ function UploadPage() {
               ]
             }));
             setParseProgress(chunk.progress || 0);
+            
+            // Update current parsing field
+            if (!currentParsingField || currentParsingField !== chunk.field) {
+              setCurrentParsingField(chunk.field);
+            }
           } else if (chunk.type === 'skill_added') {
             // Add individual skill to category
             setStructuredData(prev => ({
@@ -241,6 +262,11 @@ function UploadPage() {
               }
             }));
             setParseProgress(chunk.progress || 0);
+            
+            // Update current parsing field
+            if (!currentParsingField || currentParsingField !== 'skills') {
+              setCurrentParsingField('skills');
+            }
           } else if (chunk.type === 'achievement_added') {
             // Add achievement to category
             setStructuredData(prev => ({
@@ -254,6 +280,11 @@ function UploadPage() {
               }
             }));
             setParseProgress(chunk.progress || 0);
+            
+            // Update current parsing field
+            if (!currentParsingField || currentParsingField !== 'achievements') {
+              setCurrentParsingField('achievements');
+            }
           }
         }
       );
@@ -266,13 +297,13 @@ function UploadPage() {
         setParseProgress(100);
         setRefreshResumes(prev => prev + 1);
       } else {
-        setError('Failed to parse Google Doc');
         setProcessingStatus('failed');
       }
-    } catch (err) {
-      setError(err.message);
+    } catch (error) {
+      logError(error, 'google-docs-import', { url });
+      toastService.error(error, 'upload');
       setProcessingStatus('failed');
-      throw err; // Re-throw to be caught by ResumeUpload component
+      // Don't re-throw, let toast handle the error display
     }
   };
   
@@ -281,7 +312,6 @@ function UploadPage() {
     setResumeId(resumeData.resumeId);
     setStructuredData(resumeData.structuredData);
     setProcessingStatus('completed');
-    setError(null);
   };
   
   const handleContinue = () => {
@@ -301,9 +331,10 @@ function UploadPage() {
     setResumeId(null);
     setProcessingStatus(null);
     setStructuredData(null);
-    setError(null);
     setParseProgress(0);
     setCompletedFields([]);
+    setCurrentParsingField(null);
+    setPendingFields([]);
   };
   
   return (
@@ -367,76 +398,18 @@ function UploadPage() {
       {/* Show full-width resume viewer when resume is uploaded or being processed */}
       {(structuredData || processingStatus === 'processing') && (
         <div className="max-w-7xl mx-auto px-4">
-          {/* Whimsical Processing Status Banner */}
-          {processingStatus === 'processing' && currentStatus && (
-            <div className="fixed top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 z-50 w-11/12 md:w-auto max-w-md animate-fade-in">
-              <div className="bg-gradient-to-r from-primary-50 to-indigo-50 border border-primary-200 rounded-full shadow-lg px-4 md:px-6 py-2 md:py-3">
-                <div className="flex items-center space-x-3">
-                  <div className="relative">
-                    <div className="animate-spin rounded-full h-5 w-5 border-2 border-primary-200 border-t-primary-600"></div>
-                    <div className="absolute inset-0 animate-ping rounded-full h-5 w-5 border border-primary-400 opacity-20"></div>
-                  </div>
-                  <span className="text-sm font-medium text-gray-700 italic">
-                    {currentStatus}
-                  </span>
-                  
-                  {/* Info icon with tooltip */}
-                  <div className="relative">
-                    <button
-                      onMouseEnter={() => setShowTooltip(true)}
-                      onMouseLeave={() => setShowTooltip(false)}
-                      onClick={() => setShowTooltip(!showTooltip)}
-                      className="text-gray-400 hover:text-gray-600 transition-colors focus:outline-none"
-                      aria-label="What's happening?"
-                    >
-                      <Info className="h-4 w-4" />
-                    </button>
-                    
-                    {/* Tooltip */}
-                    {showTooltip && (
-                      <div className="absolute md:left-1/2 md:transform md:-translate-x-1/2 right-0 md:right-auto top-8 w-72 max-w-[calc(100vw-2rem)] p-3 bg-gray-900 text-white text-xs rounded-lg shadow-xl z-10">
-                        <div className="absolute -top-2 left-1/2 transform -translate-x-1/2 w-0 h-0 border-l-[6px] border-l-transparent border-r-[6px] border-r-transparent border-b-[8px] border-b-gray-900"></div>
-                        <p className="font-semibold mb-1">What's actually happening:</p>
-                        <p className="leading-relaxed">
-                          Our AI is analyzing your resume text and extracting structured data 
-                          (contact info, experience, skills, education, etc.) into a standardized 
-                          format. This allows us to perform detailed comparisons with job requirements 
-                          and provide personalized recommendations.
-                        </p>
-                        <p className="mt-2 text-gray-300 text-[10px]">
-                          The fun messages are just for entertainment while you wait!
-                        </p>
-                      </div>
-                    )}
-                  </div>
-                </div>
-              </div>
-            </div>
-          )}
-
-          {/* Progress bar with field indicators */}
+          {/* Real-time Processing Status */}
           {processingStatus === 'processing' && (
             <div className="mb-6">
-              <div className="w-full bg-gray-200 rounded-full h-2 overflow-hidden mb-2">
-                <div className="bg-gradient-to-r from-primary-400 to-indigo-500 h-2 rounded-full transition-all duration-500 ease-out"
-                     style={{
-                       width: `${parseProgress}%`
-                     }}>
-                </div>
+              <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+                <StreamingStatusDisplay
+                  currentOperation={currentParsingField}
+                  completedOperations={completedFields}
+                  pendingOperations={pendingFields}
+                  progress={parseProgress}
+                  type="parsing"
+                />
               </div>
-              {(completedFields.length > 0 || parseProgress > 0) && (
-                <div className="text-xs text-gray-600 text-center">
-                  {(() => {
-                    const lastField = completedFields[completedFields.length - 1];
-                    if (lastField) {
-                      const formatted = lastField.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
-                      return `Processing: ${formatted}`;
-                    }
-                    return `Analyzing resume structure...`;
-                  })()}
-                  {completedFields.length > 1 && ` (${completedFields.length} sections completed)`}
-                </div>
-              )}
             </div>
           )}
 

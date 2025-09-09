@@ -1,14 +1,14 @@
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { FirebaseAuthProvider } from './contexts/FirebaseAuthContext';
+import { ToastProvider } from './contexts/ToastContext';
 import ProtectedRoute from './components/auth/ProtectedRoute';
 import Layout from './components/layout/Layout';
 import HomePage from './pages/HomePage';
-import LoginPage from './pages/LoginPage';
-import SignupPage from './pages/SignupPage';
 import JobSelectionPage from './pages/JobSelectionPage';
 import UploadPage from './pages/UploadPage';
 import AnalysisPage from './pages/AnalysisPage';
+import HistoryPage from './pages/HistoryPage';
 import NotFoundPage from './pages/NotFoundPage';
 import './styles/globals.css';
 
@@ -27,11 +27,8 @@ function App() {
     <QueryClientProvider client={queryClient}>
       <Router>
         <FirebaseAuthProvider>
-          <Routes>
-            {/* Public routes */}
-            <Route path="/login" element={<LoginPage />} />
-            <Route path="/signup" element={<SignupPage />} />
-            
+          <ToastProvider>
+            <Routes>
             {/* Mixed public/protected routes with Layout */}
             <Route element={<Layout />}>
               {/* Public routes - accessible to everyone */}
@@ -49,7 +46,7 @@ function App() {
               } />
               <Route path="/history" element={
                 <ProtectedRoute>
-                  <HomePage />
+                  <HistoryPage />
                 </ProtectedRoute>
               } />
               
@@ -57,6 +54,7 @@ function App() {
               <Route path="*" element={<NotFoundPage />} />
             </Route>
           </Routes>
+          </ToastProvider>
         </FirebaseAuthProvider>
       </Router>
     </QueryClientProvider>

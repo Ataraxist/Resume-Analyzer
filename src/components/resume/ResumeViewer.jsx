@@ -2,35 +2,36 @@ import { useState, useEffect, useCallback } from 'react';
 import { User, Briefcase, GraduationCap, Code, Mail, Phone, MapPin, ScrollText, Save, Check, Info } from 'lucide-react';
 import EditableText from '../common/EditableText';
 import EditableList from '../common/EditableList';
+import firebaseResumeService from '../../services/firebaseResumeService';
+import { useAuth } from '../../contexts/FirebaseAuthContext';
 
 function ResumeViewer({ data: initialData, resumeId, editable = true }) {
   const [data, setData] = useState(initialData);
   const [saveStatus, setSaveStatus] = useState(null); // null, 'saving', 'saved', 'error'
   const [saveTimeout, setSaveTimeout] = useState(null);
+  const { user } = useAuth();
 
   useEffect(() => {
     setData(initialData);
   }, [initialData]);
 
   // Debounced save function
-  const saveData = useCallback(async (_newData) => {
-    if (!resumeId || !editable) return;
+  const saveData = useCallback(async (newData) => {
+    if (!resumeId || !editable || !user) return;
     
     setSaveStatus('saving');
     
     try {
-      // TODO: Implement update functionality in Firebase
-      // For now, updates are disabled in Firebase version
-      console.log('Resume update not yet implemented in Firebase version');
+      // Save the updated resume data to Firebase
+      await firebaseResumeService.updateResume(resumeId, user.uid, newData);
       setSaveStatus('saved');
       setTimeout(() => setSaveStatus(null), 2000); // Hide success message after 2s
     } catch (error) {
-      console.error('Failed to save:', error);
+      console.error('Error saving resume:', error);
       setSaveStatus('error');
-    } finally {
-      // Cleanup
+      setTimeout(() => setSaveStatus(null), 3000); // Hide error message after 3s
     }
-  }, [resumeId, editable]);
+  }, [resumeId, editable, user]);
 
   // Update data with debouncing
   const updateData = useCallback((path, value) => {

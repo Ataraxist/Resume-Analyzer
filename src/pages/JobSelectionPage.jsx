@@ -29,7 +29,6 @@ function JobSelectionPage() {
           animationRef.current.currentOccupationIndex = Math.floor(Math.random() * occupations.length);
         }
       } catch (error) {
-        console.error('Failed to fetch occupations:', error);
         // Service already provides fallback, but add safety check
         setAllOccupations([{ title: 'Software Developer' }]);
       }

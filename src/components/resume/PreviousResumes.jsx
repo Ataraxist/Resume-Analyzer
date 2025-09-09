@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { FileText, Clock, CheckCircle, AlertCircle, Trash2, ChevronRight } from 'lucide-react';
 import firebaseResumeService from '../../services/firebaseResumeService';
 import { useAuth } from '../../contexts/FirebaseAuthContext';
@@ -9,11 +9,7 @@ function PreviousResumes({ onSelectResume, onRefresh }) {
   const [error, setError] = useState(null);
   const { user } = useAuth();
 
-  useEffect(() => {
-    fetchMyResumes();
-  }, [onRefresh]);
-
-  const fetchMyResumes = async () => {
+  const fetchMyResumes = useCallback(async () => {
     try {
       setLoading(true);
       setError(null);
@@ -27,13 +23,16 @@ function PreviousResumes({ onSelectResume, onRefresh }) {
       }
       setResumes(recentResumes);
     } catch (err) {
-      console.error('Error fetching resumes:', err);
       // Don't show error for empty results, just set empty array
       setResumes([]);
     } finally {
       setLoading(false);
     }
-  };
+  }, [user]);
+
+  useEffect(() => {
+    fetchMyResumes();
+  }, [onRefresh, fetchMyResumes]);
 
   const handleDelete = async (e, resumeId) => {
     e.stopPropagation();
@@ -42,7 +41,6 @@ function PreviousResumes({ onSelectResume, onRefresh }) {
         await firebaseResumeService.deleteResume(resumeId, user.uid);
         fetchMyResumes();
       } catch (err) {
-        console.error('Error deleting resume:', err);
         alert('Failed to delete resume');
       }
     }
@@ -60,7 +58,6 @@ function PreviousResumes({ onSelectResume, onRefresh }) {
         filename: resume.fileName
       });
     } catch (err) {
-      console.error('Error loading resume:', err);
       alert('Failed to load resume');
     }
   };
