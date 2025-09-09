@@ -17,6 +17,7 @@ import {
 } from 'firebase/auth';
 import { doc, setDoc, getDoc, serverTimestamp } from 'firebase/firestore';
 import { auth, db } from '../config/firebase';
+import { migrateAnonymousData, checkAnonymousData } from '../services/dataMigration';
 
 const AuthContext = createContext(null);
 
@@ -55,19 +56,12 @@ export const FirebaseAuthProvider = ({ children }) => {
             setUserData(anonymousUserData);
           }
         } catch (error) {
-          console.error('Error fetching user data:', error);
+          // Error fetching user data
         }
       } else {
-        // No user signed in, sign in anonymously
-        try {
-          console.log('No user found, signing in anonymously...');
-          await signInAnonymously(auth);
-          // The onAuthStateChanged will trigger again with the anonymous user
-        } catch (error) {
-          console.error('Anonymous sign-in failed:', error);
-          setUser(null);
-          setUserData(null);
-        }
+        // No user signed in - do NOT auto-create anonymous sessions
+        setUser(null);
+        setUserData(null);
       }
       setLoading(false);
     });
@@ -90,12 +84,18 @@ export const FirebaseAuthProvider = ({ children }) => {
           const userCredential = await linkWithCredential(user, credential);
           firebaseUser = userCredential.user;
           isUpgradeFromAnonymous = true;
-          console.log('Successfully upgraded anonymous account');
         } catch (linkError) {
-          // If linking fails (e.g., email already exists), create new account
-          console.log('Linking failed, creating new account:', linkError.message);
-          const userCredential = await createUserWithEmailAndPassword(auth, email, password);
-          firebaseUser = userCredential.user;
+          // If linking fails due to email already existing, return appropriate error
+          if (linkError.code === 'auth/email-already-in-use' || 
+              linkError.code === 'auth/credential-already-in-use' ||
+              linkError.code === 'auth/provider-already-linked') {
+            return { 
+              success: false, 
+              error: 'This email is already registered. Please sign in instead.' 
+            };
+          }
+          // For other errors, throw to be caught by outer try-catch
+          throw linkError;
         }
       } else {
         // Regular signup for non-anonymous users
@@ -127,49 +127,95 @@ export const FirebaseAuthProvider = ({ children }) => {
 
       return { success: true, user: firebaseUser, upgraded: isUpgradeFromAnonymous };
     } catch (error) {
-      console.error('Signup error:', error);
       setError(error.message);
       return { success: false, error: error.message };
     }
   };
 
-  // Login function
+  // Login function - handles both anonymous and regular users
   const login = async (email, password) => {
     try {
       setError(null);
+      
+      // If current user is anonymous, save their UID for potential data migration
+      let anonymousUid = null;
+      if (user && user.isAnonymous) {
+        anonymousUid = user.uid;
+        
+        // Store in sessionStorage for potential migration
+        sessionStorage.setItem('anonymousUid', anonymousUid);
+        
+        // Sign out the anonymous user first
+        await signOut(auth);
+      }
+      
+      // Regular sign in
       const userCredential = await signInWithEmailAndPassword(auth, email, password);
-      return { success: true, user: userCredential.user };
+      
+      // Automatically migrate anonymous data if exists
+      if (anonymousUid) {
+        try {
+          const hasData = await checkAnonymousData(anonymousUid);
+          if (hasData.hasData) {
+            const migrationResult = await migrateAnonymousData(anonymousUid, userCredential.user.uid);
+            if (migrationResult.success) {
+              console.log(`Successfully migrated ${migrationResult.migratedCount} items from anonymous account`);
+            }
+          }
+        } catch (migrationError) {
+          console.error('Error during data migration:', migrationError);
+          // Don't fail the login if migration fails
+        }
+      }
+      
+      return { success: true, user: userCredential.user, previousAnonymousUid: anonymousUid };
     } catch (error) {
-      console.error('Login error:', error);
       setError(error.message);
       return { success: false, error: error.message };
     }
   };
 
-  // Google sign in (handles both anonymous upgrade and new signins)
-  const signInWithGoogle = async () => {
+  // Google sign in - properly handles sign-in vs sign-up
+  const signInWithGoogle = async (isSignUp = false) => {
     try {
       setError(null);
       const provider = new GoogleAuthProvider();
       let firebaseUser;
       let isUpgradeFromAnonymous = false;
+      let anonymousUid = null;
       
       // Check if current user is anonymous
       if (user && user.isAnonymous) {
-        // Try to link with Google
-        try {
-          const result = await linkWithPopup(user, provider);
-          firebaseUser = result.user;
-          isUpgradeFromAnonymous = true;
-          console.log('Successfully upgraded anonymous account with Google');
-        } catch (linkError) {
-          // If linking fails, sign in normally
-          console.log('Linking failed, signing in with Google:', linkError.message);
+        if (isSignUp) {
+          // SIGN UP: Try to link/upgrade anonymous account
+          try {
+            const result = await linkWithPopup(user, provider);
+            firebaseUser = result.user;
+            isUpgradeFromAnonymous = true;
+          } catch (linkError) {
+            // If linking fails due to credential already in use
+            if (linkError.code === 'auth/credential-already-in-use') {
+              return { 
+                success: false, 
+                error: 'This Google account is already registered. Please sign in instead.' 
+              };
+            }
+            throw linkError;
+          }
+        } else {
+          // SIGN IN: Save anonymous UID and sign out first
+          anonymousUid = user.uid;
+          sessionStorage.setItem('anonymousUid', anonymousUid);
+          
+          // Sign out anonymous user
+          await signOut(auth);
+          
+          // Regular Google sign-in
           const result = await signInWithPopup(auth, provider);
           firebaseUser = result.user;
         }
       } else {
-        // Regular Google sign-in
+        // Not anonymous - regular Google sign-in
         const result = await signInWithPopup(auth, provider);
         firebaseUser = result.user;
       }
@@ -189,10 +235,25 @@ export const FirebaseAuthProvider = ({ children }) => {
           wasAnonymous: isUpgradeFromAnonymous
         }, { merge: true });
       }
+      
+      // Automatically migrate anonymous data if exists
+      if (anonymousUid && !isUpgradeFromAnonymous) {
+        try {
+          const hasData = await checkAnonymousData(anonymousUid);
+          if (hasData.hasData) {
+            const migrationResult = await migrateAnonymousData(anonymousUid, firebaseUser.uid);
+            if (migrationResult.success) {
+              console.log(`Successfully migrated ${migrationResult.migratedCount} items from anonymous account`);
+            }
+          }
+        } catch (migrationError) {
+          console.error('Error during data migration:', migrationError);
+          // Don't fail the login if migration fails
+        }
+      }
 
-      return { success: true, user: firebaseUser, upgraded: isUpgradeFromAnonymous };
+      return { success: true, user: firebaseUser, upgraded: isUpgradeFromAnonymous, previousAnonymousUid: anonymousUid };
     } catch (error) {
-      console.error('Google sign-in error:', error);
       setError(error.message);
       return { success: false, error: error.message };
     }
@@ -206,7 +267,6 @@ export const FirebaseAuthProvider = ({ children }) => {
       setUserData(null);
       return { success: true };
     } catch (error) {
-      console.error('Logout error:', error);
       setError(error.message);
       return { success: false, error: error.message };
     }
@@ -219,7 +279,6 @@ export const FirebaseAuthProvider = ({ children }) => {
       await sendPasswordResetEmail(auth, email);
       return { success: true, message: 'Password reset email sent' };
     } catch (error) {
-      console.error('Password reset error:', error);
       setError(error.message);
       return { success: false, error: error.message };
     }
@@ -249,12 +308,26 @@ export const FirebaseAuthProvider = ({ children }) => {
 
       return { success: true };
     } catch (error) {
-      console.error('Profile update error:', error);
       setError(error.message);
       return { success: false, error: error.message };
     }
   };
 
+
+  // Create anonymous session explicitly when needed
+  const createAnonymousSession = async () => {
+    try {
+      if (user) {
+        return { success: false, error: 'User already authenticated' };
+      }
+      
+      const userCredential = await signInAnonymously(auth);
+      return { success: true, user: userCredential.user };
+    } catch (error) {
+      setError(error.message);
+      return { success: false, error: error.message };
+    }
+  };
 
   const value = {
     user,
@@ -267,6 +340,7 @@ export const FirebaseAuthProvider = ({ children }) => {
     logout,
     resetPassword,
     updateProfile: updateUserProfile,
+    createAnonymousSession,
     isAuthenticated: !!user,
     isAnonymous: user?.isAnonymous || false
   };
