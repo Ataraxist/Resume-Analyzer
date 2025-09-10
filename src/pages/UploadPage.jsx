@@ -72,7 +72,8 @@ function UploadPage() {
         skills: null,
         achievements: null,
         credentials: null,
-        summary: null
+        summary: null,
+        other: null
       });
       
       setProcessingStatus('processing');
@@ -201,7 +202,8 @@ function UploadPage() {
         skills: null,
         achievements: null,
         credentials: null,
-        summary: null
+        summary: null,
+        other: null
       });
       
       setProcessingStatus('processing');

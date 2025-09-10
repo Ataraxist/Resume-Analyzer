@@ -57,7 +57,7 @@ const PARSER_ERROR_MESSAGES = {
   'Rate limit': 'Too many requests. Please wait a moment and try again.',
   'Google Docs access': 'Unable to access Google Doc. Please make sure it\'s publicly accessible or try uploading the file directly.',
   'Invalid Google Docs URL': 'Please provide a valid Google Docs URL.',
-  'File too large': 'File size exceeds limit (10MB). Please use a smaller file.',
+  'File too large': 'Whoa, this resume is huge, and exceeds the size limit (500KB). Please use a smaller file.',
   'Network error': 'Connection issue. Please check your internet and try again.',
 };
 

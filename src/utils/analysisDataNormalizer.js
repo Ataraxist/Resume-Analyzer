@@ -95,3 +95,80 @@ export const calculateOverallScore = (dimensionScores) => {
   const sum = scores.reduce((acc, score) => acc + score, 0);
   return Math.round(sum / scores.length);
 };
+
+/**
+ * Dimension weights for calculating improvement impact
+ * Based on backend scoreCalculator.js weights
+ */
+const DIMENSION_WEIGHTS = {
+  tasks: 0.25,
+  skills: 0.20,
+  education: 0.15,
+  workActivities: 0.10,
+  knowledge: 0.10,
+  technologySkills: 0.10,
+  tools: 0.05,
+  abilities: 0.05
+};
+
+/**
+ * Calculates priority level based on score and weight
+ * @param {number} score - Current dimension score
+ * @param {number} weight - Dimension weight
+ * @returns {string} Priority level: 'high', 'medium', or 'low'
+ */
+const calculatePriority = (score, weight) => {
+  const gap = 100 - score;
+  const priority = gap * weight;
+  
+  if (priority > 15) return 'high';
+  if (priority > 8) return 'medium';
+  return 'low';
+};
+
+/**
+ * Calculates improvement impact for each dimension
+ * This mirrors the backend calculateImprovementImpact function
+ * @param {Object} dimensionScores - The dimension scores object
+ * @returns {Array} Array of improvement recommendations sorted by impact
+ */
+export const calculateImprovementImpact = (dimensionScores) => {
+  if (!dimensionScores || Object.keys(dimensionScores).length === 0) {
+    return [];
+  }
+  
+  const improvements = [];
+  
+  // Process each dimension
+  Object.entries(dimensionScores).forEach(([dimension, data]) => {
+    const normalized = normalizeDimensionScore(data);
+    const currentWeight = DIMENSION_WEIGHTS[dimension] || 0.10;
+    
+    if (normalized.score < 80) {
+      // Calculate improvement potential for dimensions below target
+      const currentContribution = (normalized.score / 100) * currentWeight;
+      const potentialContribution = 0.8 * currentWeight; // Target is 80%
+      const impact = potentialContribution - currentContribution;
+      
+      improvements.push({
+        dimension,
+        currentScore: normalized.score,
+        targetScore: 80,
+        potentialImpact: Math.round(impact * 100),
+        priority: calculatePriority(normalized.score, currentWeight)
+      });
+    } else {
+      // Include dimensions already at or above target
+      improvements.push({
+        dimension,
+        currentScore: normalized.score,
+        targetScore: 80,
+        potentialImpact: 0,
+        priority: 'achieved'
+      });
+    }
+  });
+  
+  // Sort by potential impact (highest first)
+  return improvements.sort((a, b) => b.potentialImpact - a.potentialImpact);
+};

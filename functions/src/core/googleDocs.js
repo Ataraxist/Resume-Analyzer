@@ -17,7 +17,7 @@ async function fetchGoogleDoc(documentId, _accessToken = null) {
     try {
       const pdfResponse = await axios.get(pdfUrl, {
         timeout: 30000, // 30 second timeout
-        maxContentLength: 10 * 1024 * 1024, // 10MB max
+        maxContentLength: 500 * 1024, // 500KB max
         responseType: 'arraybuffer',
         headers: {
           // Mimic browser to avoid potential blocking

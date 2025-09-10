@@ -8,7 +8,8 @@ import AnalysisSummarySkeleton from './AnalysisSummarySkeleton';
 import NarrativeSummary from './NarrativeSummary';
 import NarrativeSummarySkeleton from './NarrativeSummarySkeleton';
 import ImprovementImpact from './ImprovementImpact';
-import { normalizeDimensionScore } from '../../utils/analysisDataNormalizer';
+import ImprovementImpactSkeleton from './ImprovementImpactSkeleton';
+import { normalizeDimensionScore, calculateImprovementImpact } from '../../utils/analysisDataNormalizer';
 import { formatDimensionName } from '../../utils/statusFormatters';
 
 // Helper to get color class based on fit category
@@ -88,6 +89,11 @@ function AnalysisDashboard({ data }) {
     color: getFitCategoryColor(data.fitCategory)
   };
   const dimensionData = formatDimensionScores(data.dimensionScores || {});
+  
+  // Calculate improvement impact during streaming or use backend data
+  const improvementImpact = data.isStreaming && Object.keys(data.dimensionScores || {}).length > 0
+    ? calculateImprovementImpact(data.dimensionScores)
+    : data.improvementImpact;
   
   // Get icon based on score
   const getIcon = () => {
@@ -304,11 +310,15 @@ function AnalysisDashboard({ data }) {
         </div>
       </section>
       
-      {/* Improvement Impact Section */}
-      {data.improvementImpact && data.improvementImpact.length > 0 && (
+      {/* Improvement Impact Section - Show during streaming or when data available */}
+      {(data.isStreaming || (improvementImpact && improvementImpact.length > 0)) && (
         <section className="w-full">
           <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-6 pb-2 border-b border-gray-200 dark:border-gray-700">Score Improvement Strategy</h2>
-          <ImprovementImpact improvementImpact={data.improvementImpact} />
+          {data.isStreaming && Object.keys(data.dimensionScores || {}).length === 0 ? (
+            <ImprovementImpactSkeleton />
+          ) : (
+            <ImprovementImpact improvementImpact={improvementImpact || []} />
+          )}
         </section>
       )}
     </div>

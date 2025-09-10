@@ -109,9 +109,10 @@ class DimensionComparator {
      * @param {Object} fullResumeData - Complete parsed resume object
      * @param {Array} onetData - O*NET requirements for this dimension
      * @param {Object} config - Configuration for this comparison
+     * @param {Object} supplementalData - Optional supplemental data with context
      * @returns {Object} Standardized comparison results
      */
-    async compareGeneric(fullResumeData, onetData, config) {
+    async compareGeneric(fullResumeData, onetData, config, supplementalData = null) {
         this.ensureInitialized();
         if (!this.isConfigured) {
             throw new Error('OpenAI API key not configured');
@@ -133,6 +134,10 @@ ${JSON.stringify(fullResumeData)}
 
 O*NET ${dimension.toUpperCase()} REQUIREMENTS:
 ${JSON.stringify(onetData)}
+${supplementalData ? `
+SUPPLEMENTAL INFORMATION:
+${supplementalData.context || ''}
+${JSON.stringify(supplementalData.data)}` : ''}
 
 Return a JSON response with EXACTLY these fields:
 ${JSON.stringify(outputExample)}
@@ -142,6 +147,7 @@ CRITICAL REQUIREMENTS:
 - matches: array of O*NET requirements that are met
 - gaps: array of O*NET requirements that are not met
 - confidence: exactly one of "low", "medium", or "high" representing your confidence in your assessment
+- justification: a paragrpah representing the justification for your assigned score with a reference your confidence
 
 All values from the O*NET requirements should exist in either your matches or gaps arrays. Return ONLY valid JSON without any markdown formatting.`;
 
@@ -156,9 +162,10 @@ All values from the O*NET requirements should exist in either your matches or ga
                     score: { type: 'integer', minimum: 0, maximum: 100 },
                     matches: { type: 'array', items: { type: 'string' } },
                     gaps: { type: 'array', items: { type: 'string' } },
-                    confidence: { type: 'string', enum: ['low', 'medium', 'high'] }
+                    confidence: { type: 'string', enum: ['low', 'medium', 'high'] },
+                    justification: { type: 'string' }
                 },
-                required: ['score', 'matches', 'gaps', 'confidence']
+                required: ['score', 'matches', 'gaps', 'confidence', 'justification']
             }
         };
 
@@ -224,7 +231,8 @@ All values from the O*NET requirements should exist in either your matches or ga
             score,
             matches: result.matches || [],
             gaps: result.gaps || [],
-            confidence
+            confidence,
+            justification: result.justification
         };
     }
 
@@ -236,7 +244,8 @@ All values from the O*NET requirements should exist in either your matches or ga
                 score: 95,
                 matches: ["Maintain and follow standard quality, safety, environmental, and infection control policies and procedures.", "Treat patients using tools, such as needles, cups, ear balls, seeds, pellets, or nutritional supplements.", "Adhere to local, state, and federal laws, regulations, and statutes."],
                 gaps: ["Identify correct anatomical and proportional point locations based on patients' anatomy and positions, contraindications, and precautions related to treatments, such as intradermal needles, moxibustion, electricity, guasha, or bleeding.", "Develop individual treatment plans and strategies."],
-                confidence: "high"
+                confidence: "high",
+                justification: "The candidate demonstrates exceptional alignment with the required tasks, showing extensive experience in most core responsibilities. The few gaps identified are specialized procedures that can be readily learned. High confidence assessment based on clear evidence of relevant task experience."
             }
         });
     }
@@ -249,22 +258,30 @@ All values from the O*NET requirements should exist in either your matches or ga
                 score: 80,
                 matches: ["Active Listening", "Critical Thinking", "Team Service Orientation", "Social Perceptiveness"],
                 gaps: ["Speaking", "Judgment and Decision Making", "Complex Problem Solving", "Monitoring"],
-                confidence: "high"
+                confidence: "high",
+                justification: "Strong foundational skills are evident with excellent analytical and interpersonal capabilities. The gaps in decision-making and complex problem solving suggest areas for professional development. High confidence based on comprehensive skill evidence throughout the resume."
             }
         });
     }
 
-    async compareEducationFit(fullResumeData, onetEducation) {
+    async compareEducationFit(fullResumeData, onetEducation, jobZoneData) {
+        // Pass job zone as supplemental data with context
+        const supplementalData = jobZoneData ? {
+            context: "The Job Zone requirements below are supplemental O*NET requirements generalized for all occupations. These are not hard requirements for this specific job, but are typically representative of jobs in this zone:",
+            data: jobZoneData
+        } : null;
+        
         return this.compareGeneric(fullResumeData, onetEducation, {
             dimension: 'education',
-            systemRole: 'You are an expert career counselor analyzing occupational preparedness regarding academic and professional qualifications. Educational thresholds are hierarchical and cumulative. If a higher-level threshold is satisfied (e.g., Master’s), treat every lower threshold (e.g., Bachelor’s, Associate, High School) as satisfied. Never mark a lower threshold as a gap once a higher one is met.',
+            systemRole: "You are an expert career counselor analyzing occupational preparedness regarding academic and professional qualifications. Educational thresholds are hierarchical and cumulative. If a higher-level threshold is satisfied (e.g., Master's), treat every lower threshold (e.g., Bachelor's, Associate, High School) as satisfied. Never mark a lower threshold as a gap once a higher one is met.",
             outputExample: {
                 score: 85,
-                matches: ["Master’s degree required", "Post-secondary certificate required", "Professional certifications"],
+                matches: ["Master's degree required", "Post-secondary certificate required", "Professional certifications"],
                 gaps: ["Doctoral degree required", "Additional industry certifications"],
-                confidence: "high"
+                confidence: "high",
+                justification: "Educational qualifications exceed baseline requirements with advanced degree and relevant certifications. While lacking the highest level credentials, the candidate's educational background provides a solid foundation for the role. High confidence due to clear educational documentation."
             }
-        });
+        }, supplementalData);
     }
 
     async compareWorkActivitiesFit(fullResumeData, onetWorkActivities) {
@@ -278,7 +295,8 @@ All values from the O*NET requirements should exist in either your matches or ga
                 score: 90,
                 matches: ["Assisting and Caring for Others", "Documenting/Recording Information", "Getting Information"],
                 gaps: ["Updating and Using Relevant Knowledge", "Establishing and Maintaining Interpersonal Relationships", "Performing for or Working Directly with the Public"],
-                confidence: "high"
+                confidence: "high",
+                justification: "Excellent alignment with core work activities, demonstrating proven experience in essential daily tasks. Minor gaps in public interaction and relationship building are easily addressable through on-the-job experience. High confidence based on detailed activity descriptions."
             }
         });
     }
@@ -294,7 +312,8 @@ All values from the O*NET requirements should exist in either your matches or ga
                 score: 95,
                 matches: ["Customer and Personal Service", "Medicine and Dentistry", "Psychology"],
                 gaps: ["Biology", "English Language", "Administrative"],
-                confidence: "high"
+                confidence: "high",
+                justification: "Exceptional domain knowledge demonstrated across critical areas with deep expertise in required fields. The identified gaps are supplementary knowledge areas that can be acquired as needed. High confidence due to extensive evidence of subject matter expertise."
             }
         });
     }
@@ -316,7 +335,8 @@ IMPORTANT: Apply realistic judgment when evaluating technology skills:
                 score: 85,
                 matches: ["Electronic mail software", "Medical software", "Office suite software", "Operating system software"],
                 gaps: ["Spreadsheet software", "Word processing software"],
-                confidence: "high"
+                confidence: "high",
+                justification: "Strong technical proficiency across major software categories with expertise in specialized tools. Gaps in specific applications are minor given demonstrated ability to work with similar technologies. High confidence based on clear technology usage patterns."
             }
         });
     }
@@ -337,7 +357,8 @@ IMPORTANT: Apply common sense when evaluating tools:
                 score: 90,
                 matches: ["Hypodermic needle", "Medical heat lamps", "Neuromuscular stimulators or kits", "Reflex hammers or mallets", "Surgical clamps or clips or forceps"],
                 gaps: ["Surgical scissors", "Therapeutic balls", "Therapeutic heating or cooling pads or compresses or packs"],
-                confidence: "high"
+                confidence: "high",
+                justification: "Comprehensive experience with critical professional tools, demonstrating hands-on expertise with essential equipment. Minor gaps in auxiliary tools are easily addressed through brief training. High confidence from specific tool experience documented."
             }
         });
     }
@@ -353,7 +374,8 @@ IMPORTANT: Apply common sense when evaluating tools:
                 score: 85,
                 matches: ["Deductive Reasoning", "Near Vision", "Oral Comprehension", "Oral Expression"],
                 gaps: ["Problem Sensitivity", "Written Comprehension", "Inductive Reasoning"],
-                confidence: "medium"
+                confidence: "medium",
+                justification: "Strong cognitive and communication abilities align well with role requirements. Some analytical capabilities could be further developed for optimal performance. Medium confidence as abilities are inferred from experience rather than directly stated."
             }
         });
     }

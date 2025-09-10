@@ -1,4 +1,4 @@
-import { CheckCircle, XCircle, AlertCircle, AlertTriangle, Info, Shield, ShieldAlert, ShieldCheck } from 'lucide-react';
+import { CheckCircle, XCircle, AlertTriangle, Info, Shield, ShieldAlert, ShieldCheck } from 'lucide-react';
 import { normalizeDimensionScore } from '../../utils/analysisDataNormalizer';
 import { formatDimensionName } from '../../utils/statusFormatters';
 
@@ -9,6 +9,7 @@ function DimensionCard({ dimension, data }) {
   const matches = normalizedData.matches;
   const gaps = normalizedData.gaps;
   const confidence = data.confidence || 'medium';
+  const justification = data.justification || '';
   
   // Get confidence display info
   const getConfidenceInfo = () => {
@@ -49,19 +50,6 @@ function DimensionCard({ dimension, data }) {
   };
   
   const confidenceInfo = getConfidenceInfo();
-  
-  // Determine gap priority
-  const getGapPriority = () => {
-    if (score < 50 && ['skills', 'experience'].includes(dimension)) {
-      return { level: 'critical', icon: AlertCircle, color: 'text-danger-600 dark:text-danger-400', bgColor: 'bg-danger-50 dark:bg-danger-900/30' };
-    } else if (score < 70 && ['education', 'abilities', 'knowledge'].includes(dimension)) {
-      return { level: 'important', icon: AlertTriangle, color: 'text-warning-600 dark:text-warning-400', bgColor: 'bg-warning-50 dark:bg-warning-900/30' };
-    } else {
-      return { level: 'nice-to-have', icon: Info, color: 'text-primary-600 dark:text-primary-400', bgColor: 'bg-primary-50 dark:bg-primary-900/30' };
-    }
-  };
-  
-  const gapPriority = gaps && gaps.length > 0 ? getGapPriority() : null;
   
   const getScoreColor = (score) => {
     if (score >= 70) return 'bg-success-500';
@@ -126,25 +114,29 @@ function DimensionCard({ dimension, data }) {
           <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
             Gaps: <span className="font-bold text-danger-700">{gaps?.length || 0}</span>
           </span>
-          {gapPriority && (
-            <span className={`px-2 py-0.5 text-xs font-medium rounded-full ${
-              gapPriority.level === 'critical' ? 'bg-danger-100 text-danger-800' :
-              gapPriority.level === 'important' ? 'bg-warning-100 text-warning-800' :
-              'bg-primary-100 text-primary-800'
-            }`}>
-              {gapPriority.level === 'critical' ? 'Critical' :
-               gapPriority.level === 'important' ? 'Important' :
-               'Nice to Have'}
-            </span>
-          )}
         </div>
       </div>
+      
+      {/* Justification explanation */}
+      {justification && (
+        <div className="mb-6 p-4 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg">
+          <div className="flex gap-3">
+            <Info className="h-5 w-5 text-primary-600 dark:text-primary-400 mt-0.5 flex-shrink-0" />
+            <div className="space-y-2">
+              <h5 className="text-sm font-semibold text-gray-900 dark:text-white">Score Justification</h5>
+              <p className="text-sm text-gray-600 dark:text-gray-300 leading-relaxed">
+                {justification}
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
       
       {/* Confidence explanation for low confidence */}
       {confidence === 'low' && (
         <div className="mb-6 p-3 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-lg">
           <div className="flex gap-2">
-            <Info className="h-4 w-4 text-amber-600 dark:text-amber-400 mt-0.5 flex-shrink-0" />
+            <AlertTriangle className="h-4 w-4 text-amber-600 dark:text-amber-400 mt-0.5 flex-shrink-0" />
             <p className="text-xs text-amber-800 dark:text-amber-200">
               <span className="font-semibold">Low assessment confidence:</span> Your resume may not contain explicit evidence for all {formatDimensionName(dimension).toLowerCase()} requirements. Consider adding more specific examples and details related to this area to improve assessment accuracy.
             </p>
@@ -174,16 +166,12 @@ function DimensionCard({ dimension, data }) {
         <div>
           {gaps && gaps.length > 0 ? (
             <div className="space-y-2">
-              {gaps.map((gap, idx) => {
-                const GapIcon = gapPriority?.icon || XCircle;
-                const iconColor = gapPriority?.color || 'text-danger-500';
-                return (
-                  <div key={idx} className="flex items-start">
-                    <GapIcon className={`h-3 w-3 ${iconColor} mr-2 mt-0.5 flex-shrink-0`} />
-                    <p className="text-sm text-gray-600 dark:text-gray-400">{gap}</p>
-                  </div>
-                );
-              })}
+              {gaps.map((gap, idx) => (
+                <div key={idx} className="flex items-start">
+                  <XCircle className="h-3 w-3 text-danger-500 mr-2 mt-0.5 flex-shrink-0" />
+                  <p className="text-sm text-gray-600 dark:text-gray-400">{gap}</p>
+                </div>
+              ))}
             </div>
           ) : (
             <p className="text-sm text-gray-400 dark:text-gray-500 italic">No gaps identified</p>

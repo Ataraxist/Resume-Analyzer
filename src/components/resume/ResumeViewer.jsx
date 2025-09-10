@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { User, Briefcase, GraduationCap, Code, Mail, Phone, MapPin, ScrollText, Save, Check, Info } from 'lucide-react';
+import { User, Briefcase, GraduationCap, Code, Mail, Phone, MapPin, ScrollText, Save, Check, Info, FileText } from 'lucide-react';
 import EditableText from '../common/EditableText';
 import EditableList from '../common/EditableList';
 import firebaseResumeService from '../../services/firebaseResumeService';
@@ -280,6 +280,27 @@ function ResumeViewer({ data: initialData, resumeId, editable = true }) {
                     </div>
                   </>
                 )}
+              </div>
+            </div>
+          )}
+          
+          {/* Other/Additional Information */}
+          {data.other && data.other.trim() && (
+            <div className="mb-6">
+              <div className="flex items-center mb-3">
+                <FileText className="h-5 w-5 text-gray-600 dark:text-gray-400 mr-2" />
+                <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Additional Information</h3>
+              </div>
+              
+              <div className="ml-7">
+                <EditableText
+                  value={data.other}
+                  onChange={(value) => updateData('other', value)}
+                  placeholder="Additional information not captured above"
+                  className="text-sm text-gray-700 dark:text-gray-300 leading-relaxed block whitespace-pre-wrap"
+                  multiline={true}
+                  disabled={!editable}
+                />
               </div>
             </div>
           )}

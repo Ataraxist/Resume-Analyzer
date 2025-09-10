@@ -5,7 +5,8 @@ const {
   calculateOverallScore, 
   calculateFitCategory, 
   generateScoreBreakdown,
-  calculateImprovementImpact
+  calculateImprovementImpact,
+  formatDimensionName
 } = require('./services/scoreCalculator.js');
 
 const db = getFirestore();
@@ -210,8 +211,8 @@ async function analyzeResume(request, response) {
       const lowestScoringDimension = Object.entries(dimensionScores)
         .sort((a, b) => a[1].score - b[1].score)[0];
       if (lowestScoringDimension && lowestScoringDimension[1].gaps && lowestScoringDimension[1].gaps.length > 0) {
-        const topGap = toString(lowestScoringDimension[1]);
-        strengthsAndGaps += `Specifically, gaining experience with "${topGap}" would have the highest impact on your candidacy.`;
+        const topGap = lowestScoringDimension[0];
+        strengthsAndGaps += `Specifically, gaining experience with O*NET's suggested ${formatDimensionName(topGap)} would have the highest impact on your candidacy.`;
       }
       
       // Path Forward
@@ -302,274 +303,176 @@ async function analyzeDimensionsWithComparator(resumeData, occupationDimensions,
   console.log('resumeData.skills exists?', !!resumeData?.skills);
   console.log('First 200 chars of resumeData:', JSON.stringify(resumeData).substring(0, 200));
 
-  // Analyze tasks/experience match
-  if (resumeData.experience && occupationDimensions.tasks) {
-    response.sendChunk({
-      type: 'dimension_started',
-      dimension: 'tasks',
-      progress: 20
+  // Prepare all dimension analysis tasks
+  const dimensionTasks = [];
+
+  // Tasks/experience analysis
+  if (occupationDimensions.tasks && occupationDimensions.tasks.length > 0) {
+    dimensionTasks.push({
+      name: 'tasks',
+      startProgress: 20,
+      endProgress: 30,
+      promise: dimensionComparator.compareTasksFit(resumeData, occupationDimensions.tasks)
     });
-    
-    try {
-      const tasksAnalysis = await dimensionComparator.compareTasksFit(
-        resumeData,
-        occupationDimensions.tasks
-      );
-      dimensions.tasks = tasksAnalysis;
-      
-      // Trigger first success callback
-      if (!firstSuccessTriggered && onFirstSuccess) {
-        await onFirstSuccess();
-        firstSuccessTriggered = true;
-      }
-      
-      response.sendChunk({
-        type: 'dimension_completed',
-        dimension: 'tasks',
-        scores: tasksAnalysis,
-        progress: 30
-      });
-    } catch (error) {
-      console.error('Error analyzing tasks:', error);
-      dimensions.tasks = { score: 0, matches: [], gaps: [], error: error.message };
-    }
   }
 
-  // Analyze skills match
-  if (resumeData.skills && occupationDimensions.skills) {
-    response.sendChunk({
-      type: 'dimension_started',
-      dimension: 'skills',
-      progress: 35
-    });
-    
-    try {
-      const skillsAnalysis = await dimensionComparator.compareSkillsFit(
+  // Skills analysis
+  if (occupationDimensions.skills && occupationDimensions.skills.length > 0) {
+    dimensionTasks.push({
+      name: 'skills',
+      startProgress: 35,
+      endProgress: 40,
+      promise: dimensionComparator.compareSkillsFit(
         resumeData,
         occupationDimensions.skills,
         occupationDimensions.technologySkills
-      );
-      dimensions.skills = skillsAnalysis;
-      
-      // Trigger first success callback
-      if (!firstSuccessTriggered && onFirstSuccess) {
-        await onFirstSuccess();
-        firstSuccessTriggered = true;
-      }
-      
-      response.sendChunk({
-        type: 'dimension_completed',
-        dimension: 'skills',
-        scores: skillsAnalysis,
-        progress: 40
-      });
-    } catch (error) {
-      console.error('Error analyzing skills:', error);
-      dimensions.skills = { score: 0, matches: [], gaps: [], error: error.message };
-    }
+      )
+    });
   }
 
-  // Analyze technology skills separately
-  if (resumeData.skills && occupationDimensions.technologySkills) {
-    response.sendChunk({
-      type: 'dimension_started',
-      dimension: 'technologySkills',
-      progress: 45
-    });
-    
-    try {
-      const technologySkillsAnalysis = await dimensionComparator.compareTechnologySkillsFit(
+  // Technology skills analysis
+  if (occupationDimensions.technologySkills && occupationDimensions.technologySkills.length > 0) {
+    dimensionTasks.push({
+      name: 'technologySkills',
+      startProgress: 45,
+      endProgress: 50,
+      promise: dimensionComparator.compareTechnologySkillsFit(
         resumeData,
         occupationDimensions.technologySkills
-      );
-      dimensions.technologySkills = technologySkillsAnalysis;
-      
-      // Trigger first success callback
-      if (!firstSuccessTriggered && onFirstSuccess) {
-        await onFirstSuccess();
-        firstSuccessTriggered = true;
-      }
-      
-      response.sendChunk({
-        type: 'dimension_completed',
-        dimension: 'technologySkills',
-        scores: technologySkillsAnalysis,
-        progress: 50
-      });
-    } catch (error) {
-      console.error('Error analyzing technologySkills:', error);
-      dimensions.technologySkills = { score: 0, matches: [], gaps: [], error: error.message };
-    }
+      )
+    });
   }
 
-  // Analyze education requirements
-  if (resumeData.education) {
-    response.sendChunk({
-      type: 'dimension_started',
-      dimension: 'education',
-      progress: 55
-    });
-    
-    try {
-      const educationAnalysis = await dimensionComparator.compareEducationFit(
+  // Education analysis
+  if ((occupationDimensions.education && occupationDimensions.education.length > 0) || occupationDimensions.jobZone) {
+    dimensionTasks.push({
+      name: 'education',
+      startProgress: 55,
+      endProgress: 60,
+      promise: dimensionComparator.compareEducationFit(
         resumeData,
         occupationDimensions.education,
-        null  // Remove job_zone from comparison
-      );
-      dimensions.education = educationAnalysis;
-      
-      // Trigger first success callback
-      if (!firstSuccessTriggered && onFirstSuccess) {
-        await onFirstSuccess();
-        firstSuccessTriggered = true;
-      }
-      
-      response.sendChunk({
-        type: 'dimension_completed',
-        dimension: 'education',
-        scores: educationAnalysis,
-        progress: 60
-      });
-    } catch (error) {
-      console.error('Error analyzing education:', error);
-      dimensions.education = { score: 0, matches: [], gaps: [], error: error.message };
-    }
+        occupationDimensions.jobZone
+      )
+    });
   }
 
-  // Analyze work activities
-  if (resumeData.experience && occupationDimensions.workActivities) {
-    response.sendChunk({
-      type: 'dimension_started',
-      dimension: 'workActivities',
-      progress: 65
-    });
-    
-    try {
-      const workActivitiesAnalysis = await dimensionComparator.compareWorkActivitiesFit(
+  // Work activities analysis
+  if (occupationDimensions.workActivities && occupationDimensions.workActivities.length > 0) {
+    dimensionTasks.push({
+      name: 'workActivities',
+      startProgress: 65,
+      endProgress: 70,
+      promise: dimensionComparator.compareWorkActivitiesFit(
         resumeData,
         occupationDimensions.workActivities
-      );
-      dimensions.workActivities = workActivitiesAnalysis;
-      
-      // Trigger first success callback
-      if (!firstSuccessTriggered && onFirstSuccess) {
-        await onFirstSuccess();
-        firstSuccessTriggered = true;
-      }
-      
-      response.sendChunk({
-        type: 'dimension_completed',
-        dimension: 'workActivities',
-        scores: workActivitiesAnalysis,
-        progress: 70
-      });
-    } catch (error) {
-      console.error('Error analyzing workActivities:', error);
-      dimensions.workActivities = { score: 0, matches: [], gaps: [], error: error.message };
-    }
+      )
+    });
   }
 
-  // Analyze abilities
-  if (occupationDimensions.abilities) {
-    response.sendChunk({
-      type: 'dimension_started',
-      dimension: 'abilities',
-      progress: 75
-    });
-    
-    try {
-      const abilitiesAnalysis = await dimensionComparator.compareAbilitiesFit(
+  // Abilities analysis
+  if (occupationDimensions.abilities && occupationDimensions.abilities.length > 0) {
+    dimensionTasks.push({
+      name: 'abilities',
+      startProgress: 75,
+      endProgress: 80,
+      promise: dimensionComparator.compareAbilitiesFit(
         resumeData,
         occupationDimensions.abilities
-      );
-      dimensions.abilities = abilitiesAnalysis;
-      
-      // Trigger first success callback
-      if (!firstSuccessTriggered && onFirstSuccess) {
-        await onFirstSuccess();
-        firstSuccessTriggered = true;
-      }
-      
-      response.sendChunk({
-        type: 'dimension_completed',
-        dimension: 'abilities',
-        scores: abilitiesAnalysis,
-        progress: 80
-      });
-    } catch (error) {
-      console.error('Error analyzing abilities:', error);
-      dimensions.abilities = { score: 0, matches: [], gaps: [], error: error.message };
-    }
+      )
+    });
   }
 
-  // Analyze knowledge areas
-  if (occupationDimensions.knowledge) {
-    response.sendChunk({
-      type: 'dimension_started',
-      dimension: 'knowledge',
-      progress: 85
-    });
-    
-    try {
-      const knowledgeAnalysis = await dimensionComparator.compareKnowledgeFit(
+  // Knowledge analysis
+  if (occupationDimensions.knowledge && occupationDimensions.knowledge.length > 0) {
+    dimensionTasks.push({
+      name: 'knowledge',
+      startProgress: 85,
+      endProgress: 90,
+      promise: dimensionComparator.compareKnowledgeFit(
         resumeData,
         occupationDimensions.knowledge
-      );
-      dimensions.knowledge = knowledgeAnalysis;
-      
-      // Trigger first success callback
-      if (!firstSuccessTriggered && onFirstSuccess) {
-        await onFirstSuccess();
-        firstSuccessTriggered = true;
-      }
-      
-      response.sendChunk({
-        type: 'dimension_completed',
-        dimension: 'knowledge',
-        scores: knowledgeAnalysis,
-        progress: 90
-      });
-    } catch (error) {
-      console.error('Error analyzing knowledge:', error);
-      dimensions.knowledge = { score: 0, matches: [], gaps: [], error: error.message };
-    }
+      )
+    });
   }
 
-  // Analyze tools
-  if (occupationDimensions.tools) {
-    response.sendChunk({
-      type: 'dimension_started',
-      dimension: 'tools',
-      progress: 95
-    });
-    
-    try {
-      // Pass full resume data for better tool detection
-      const toolsAnalysis = await dimensionComparator.compareToolsFit(
+  // Tools analysis
+  if (occupationDimensions.tools && occupationDimensions.tools.length > 0) {
+    dimensionTasks.push({
+      name: 'tools',
+      startProgress: 95,
+      endProgress: 100,
+      promise: dimensionComparator.compareToolsFit(
         resumeData,
         occupationDimensions.tools
-      );
-      dimensions.tools = toolsAnalysis;
-      
-      // Trigger first success callback
-      if (!firstSuccessTriggered && onFirstSuccess) {
-        await onFirstSuccess();
-        firstSuccessTriggered = true;
-      }
-      
-      response.sendChunk({
-        type: 'dimension_completed',
-        dimension: 'tools',
-        scores: toolsAnalysis,
-        progress: 100
-      });
-    } catch (error) {
-      console.error('Error analyzing tools:', error);
-      dimensions.tools = { score: 0, matches: [], gaps: [], error: error.message };
-    }
+      )
+    });
   }
 
-  return dimensions;
+  // Send start notifications for all dimensions
+  dimensionTasks.forEach(task => {
+    response.sendChunk({
+      type: 'dimension_started',
+      dimension: task.name,
+      progress: task.startProgress
+    });
+  });
+
+  // Track completion
+  let completedCount = 0;
+  const totalTasks = dimensionTasks.length;
+
+  // Create a promise that resolves when all tasks are done
+  return new Promise((resolve) => {
+    // Process each dimension as it completes
+    dimensionTasks.forEach(task => {
+      task.promise
+        .then(result => {
+          // Success case
+          dimensions[task.name] = result;
+          
+          // Trigger first success callback
+          if (!firstSuccessTriggered && onFirstSuccess) {
+            onFirstSuccess().catch(err => console.error('Error in onFirstSuccess:', err));
+            firstSuccessTriggered = true;
+          }
+          
+          // Send completion chunk immediately
+          response.sendChunk({
+            type: 'dimension_completed',
+            dimension: task.name,
+            scores: result,
+            progress: task.endProgress
+          });
+        })
+        .catch(error => {
+          // Error case
+          console.error(`Error analyzing ${task.name}:`, error);
+          dimensions[task.name] = { 
+            score: 0, 
+            matches: [], 
+            gaps: [], 
+            error: error?.message || 'Unknown error' 
+          };
+          
+          // Send completion chunk even for errors
+          response.sendChunk({
+            type: 'dimension_completed',
+            dimension: task.name,
+            scores: dimensions[task.name],
+            progress: task.endProgress
+          });
+        })
+        .finally(() => {
+          // Track completion
+          completedCount++;
+          if (completedCount === totalTasks) {
+            // All tasks done, resolve with dimensions
+            resolve(dimensions);
+          }
+        });
+    });
+  });
 }
 
 // Old comparison functions have been replaced by dimensionComparator service

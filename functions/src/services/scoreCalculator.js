@@ -171,5 +171,6 @@ module.exports = {
     calculateOverallScore: (scores) => scoreCalculator.calculateOverallScore(scores),
     calculateFitCategory: (score) => scoreCalculator.calculateFitCategory(score),
     generateScoreBreakdown: (scores) => scoreCalculator.generateScoreBreakdown(scores),
-    calculateImprovementImpact: (scores) => scoreCalculator.calculateImprovementImpact(scores)
+    calculateImprovementImpact: (scores) => scoreCalculator.calculateImprovementImpact(scores),
+    formatDimensionName: (dimension) => scoreCalculator.formatDimensionName(dimension)
 };

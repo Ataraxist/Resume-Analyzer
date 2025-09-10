@@ -12,7 +12,7 @@ function ResumeUpload({ onUpload, onGoogleDocsImport }) {
     if (fileRejections.length > 0) {
       const rejection = fileRejections[0];
       if (rejection.errors[0]?.code === 'file-too-large') {
-        toastService.error('File size exceeds 10MB limit. Please use a smaller file.');
+        toastService.error('File size exceeds 500KB limit. Please use a smaller file.');
       } else if (rejection.errors[0]?.code === 'file-invalid-type') {
         toastService.error('Please upload a PDF, DOCX, or TXT file.');
       } else {
@@ -33,7 +33,7 @@ function ResumeUpload({ onUpload, onGoogleDocsImport }) {
       'application/vnd.openxmlformats-officedocument.wordprocessingml.document': ['.docx'],
       'text/plain': ['.txt']
     },
-    maxSize: 10 * 1024 * 1024, // 10MB
+    maxSize: 500 * 1024, // 500KB
     maxFiles: 1
   });
   
@@ -132,7 +132,7 @@ function ResumeUpload({ onUpload, onGoogleDocsImport }) {
               </p>
               
               <p className="text-xs text-gray-500 dark:text-gray-400">
-                Supported formats: PDF, DOCX, TXT (Max 10MB)
+                Supported formats: PDF, DOCX, TXT (Max 500KB)
               </p>
             </div>
           </div>

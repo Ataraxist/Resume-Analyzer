@@ -193,7 +193,8 @@ IMPORTANT: The JSON structure must EXACTLY match this universal schema:
       "details": "string or null"
     }
   },
-  "summary": "professional summary text extracted or synthesized"
+  "summary": "professional summary text extracted or synthesized",
+  "other": "string containing any content that doesn't fit into the defined categories above"
 }
 
 PARSING RULES:
@@ -210,8 +211,14 @@ PARSING RULES:
 4. Use null for missing strings, empty arrays for missing lists
 5. Don't force tech-specific items (like GitHub) for non-tech professionals
 6. Recognize diverse achievements (art exhibitions = projects, research papers = publications)
-7. Before finalizing, review the original resume to ensure NO information was omitted
-8. Return ONLY valid JSON without any markdown formatting`;
+7. IMPORTANT: Collect ALL content that doesn't clearly fit into the defined categories
+   - Place this content in the 'other' field as a single text string
+   - Include section headings if identifiable (e.g., 'PUBLICATIONS: ...', 'CONFERENCES: ...')
+   - For academic CVs: conference presentations, research interests, teaching philosophy, etc.
+   - For any profession: content that seems important but doesn't fit standard categories
+   - NEVER discard information - if unsure where it belongs, append it to 'other'
+8. Before finalizing, review the original resume to ensure NO information was omitted
+9. Return ONLY valid JSON without any markdown formatting`;
 }
 
 function validateStructure(data) {
@@ -275,6 +282,11 @@ function validateStructure(data) {
       security_clearances: [],
       work_authorization: {}
     };
+  }
+
+  // Validate 'other' field - default to empty string if not present
+  if (!data.other || typeof data.other !== 'string') {
+    data.other = '';
   }
 
   return true;
@@ -412,7 +424,6 @@ async function parseResumeWithStreaming(resumeText, userId, fileName = 'Direct I
       fileName,
       fileType: metadata.fileType || 'text/plain', // Default for text input only
       fileSize: resumeText.length,
-      extractedText: resumeText.substring(0, 5000), // Limit stored text
       structuredData: parsedData,
       processingStatus: 'completed',
       parsedAt: FieldValue.serverTimestamp(),
