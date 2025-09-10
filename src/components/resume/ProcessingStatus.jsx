@@ -50,21 +50,21 @@ function ProcessingStatus({
           />
         </div>
         
-        <h3 className="text-lg font-semibold text-gray-900 mb-2">
+        <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">
           {config.title}
         </h3>
         
-        <p className="text-sm text-gray-600 mb-6">
+        <p className="text-sm text-gray-600 dark:text-gray-300 mb-6">
           {config.description}
         </p>
         
         {status === 'processing' && (
           <div className="w-full">
-            <div className="flex justify-between text-xs text-gray-600 mb-1">
+            <div className="flex justify-between text-xs text-gray-600 dark:text-gray-400 mb-1">
               <span>Progress</span>
               <span>{Math.round(progress)}%</span>
             </div>
-            <div className="w-full bg-gray-200 rounded-full h-2">
+            <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2">
               <div 
                 className="bg-primary-600 h-2 rounded-full transition-all duration-300 ease-out" 
                 style={{ width: `${progress}%` }} 

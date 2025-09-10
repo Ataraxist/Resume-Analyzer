@@ -345,18 +345,18 @@ function UploadPage() {
           <div className="w-full max-w-2xl">
             {/* Selected Job Banner */}
             {selectedOccupation && (
-              <div className="bg-primary-50 border border-primary-200 rounded-lg p-4 mb-6">
+              <div className="bg-primary-50 dark:bg-primary-900/30 border border-primary-200 dark:border-primary-700 rounded-lg p-4 mb-6">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center">
                     <Briefcase className="h-5 w-5 text-primary-600 mr-3" />
                     <div>
-                      <p className="text-sm text-gray-600">Target Job:</p>
-                      <p className="font-semibold text-gray-900">{selectedOccupation.title}</p>
+                      <p className="text-sm text-gray-600 dark:text-gray-400">Target Job:</p>
+                      <p className="font-semibold text-gray-900 dark:text-white">{selectedOccupation.title}</p>
                     </div>
                   </div>
                   <Link
                     to="/careers"
-                    className="flex items-center text-sm text-primary-600 hover:text-primary-700"
+                    className="flex items-center text-sm text-primary-600 dark:text-primary-400 hover:text-primary-700 dark:hover:text-primary-300"
                   >
                     <ArrowLeft className="h-4 w-4 mr-1" />
                     Change career
@@ -366,8 +366,8 @@ function UploadPage() {
             )}
             
             <div className="text-center mb-8">
-              <h1 className="text-3xl font-bold text-gray-900 mb-2">Upload Your Resume</h1>
-              <p className="text-gray-600">
+              <h1 className="text-3xl font-bold text-gray-900 dark:text-white mb-2">Upload Your Resume</h1>
+              <p className="text-gray-600 dark:text-gray-300">
                 Upload your resume to compare against <span className="font-medium">{selectedOccupation?.title || 'your selected job'}</span>.
                 <br />
                 We support PDF, DOCX, and TXT formats.
@@ -413,16 +413,16 @@ function UploadPage() {
           <div className="flex items-center justify-between mb-6">
             <div className="flex items-center space-x-4">
               {selectedOccupation && (
-                <div className="bg-primary-50 border border-primary-200 rounded-lg px-4 py-2">
+                <div className="bg-primary-50 dark:bg-primary-900/30 border border-primary-200 dark:border-primary-700 rounded-lg px-4 py-2">
                   <div className="flex items-center">
-                    <Briefcase className="h-4 w-4 text-primary-600 mr-2" />
-                    <span className="text-sm font-medium text-gray-900">{selectedOccupation.title}</span>
+                    <Briefcase className="h-4 w-4 text-primary-600 dark:text-primary-400 mr-2" />
+                    <span className="text-sm font-medium text-gray-900 dark:text-white">{selectedOccupation.title}</span>
                   </div>
                 </div>
               )}
               <Link
                 to="/careers"
-                className="flex items-center text-sm text-primary-600 hover:text-primary-700"
+                className="flex items-center text-sm text-primary-600 dark:text-primary-400 hover:text-primary-700 dark:hover:text-primary-300"
               >
                 <ArrowLeft className="h-4 w-4 mr-1" />
                 Change career

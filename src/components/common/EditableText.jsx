@@ -61,7 +61,7 @@ function EditableText({
           onChange={(e) => setLocalValue(e.target.value)}
           onBlur={handleSave}
           onKeyDown={handleKeyDown}
-          className={`${className} px-1 py-0.5 border border-primary-400 rounded outline-none focus:ring-1 focus:ring-primary-500 ${
+          className={`${className} px-1 py-0.5 border border-primary-400 dark:border-primary-500 rounded outline-none focus:ring-1 focus:ring-primary-500 dark:focus:ring-primary-400 dark:bg-gray-700 dark:text-white ${
             multiline ? 'min-h-[60px] w-full' : ''
           }`}
           rows={multiline ? 3 : undefined}
@@ -73,10 +73,10 @@ function EditableText({
   return (
     <span 
       onClick={() => !disabled && setIsEditing(true)}
-      className={`${className} cursor-pointer hover:bg-gray-100 hover:text-primary-600 px-1 py-0.5 rounded transition-colors inline`}
+      className={`${className} cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-700 hover:text-primary-600 dark:hover:text-primary-400 px-1 py-0.5 rounded transition-colors inline`}
       title="Click to edit"
     >
-      {value || <span className="text-gray-400 italic">{placeholder}</span>}
+      {value || <span className="text-gray-400 dark:text-gray-500 italic">{placeholder}</span>}
     </span>
   );
 }

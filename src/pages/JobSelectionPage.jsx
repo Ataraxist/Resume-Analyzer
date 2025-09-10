@@ -135,14 +135,14 @@ function JobSelectionPage() {
       {/* Header */}
       <div className="text-center mb-8">
         <div className="mb-6">
-          <h1 className="text-4xl font-bold text-gray-900 mb-2">
+          <h1 className="text-4xl font-bold text-gray-900 dark:text-white mb-2">
             Join the ranks of top
           </h1>
-          <div className="text-4xl font-bold text-gray-900 min-h-[60px] flex items-center justify-center">
+          <div className="text-4xl font-bold text-gray-900 dark:text-white min-h-[60px] flex items-center justify-center">
             <span>
               {displayedText}
               <span 
-                className="inline-block w-0.5 h-8 bg-gray-900 ml-1 align-middle"
+                className="inline-block w-0.5 h-8 bg-gray-900 dark:bg-gray-100 ml-1 align-middle"
                 style={{
                   animation: 'blink 1s infinite'
                 }}
@@ -150,49 +150,49 @@ function JobSelectionPage() {
             </span>
           </div>
         </div>
-        <p className="text-xl text-gray-600 max-w-3xl mx-auto mb-8">
+        <p className="text-xl text-gray-600 dark:text-gray-300 max-w-3xl mx-auto mb-8">
           Choose from {allOccupations.length || '1,000+'} career paths to map your professional journey. 
           Identify skill gaps, discover growth opportunities, and create your personalized development roadmap.
         </p>
         
         {/* Info Cards - Compact version below header */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4 max-w-5xl mx-auto">
-          <div className="bg-gradient-to-br from-blue-50 to-blue-100 rounded-lg p-4 border border-blue-200">
+          <div className="bg-gradient-to-br from-blue-50 to-blue-100 dark:from-blue-900/30 dark:to-blue-800/30 rounded-lg p-4 border border-blue-200 dark:border-blue-700">
             <div className="flex items-start space-x-3">
-              <TrendingUp className="h-5 w-5 text-blue-600 mt-0.5 flex-shrink-0" />
+              <TrendingUp className="h-5 w-5 text-blue-600 dark:text-blue-400 mt-0.5 flex-shrink-0" />
               <div className="text-left">
-                <h3 className="font-semibold text-gray-900 text-sm">
+                <h3 className="font-semibold text-gray-900 dark:text-white text-sm">
                   High-Growth Careers
                 </h3>
-                <p className="text-xs text-gray-700 mt-1">
+                <p className="text-xs text-gray-700 dark:text-gray-300 mt-1">
                   Explore occupations with bright outlook and rapid growth.
                 </p>
               </div>
             </div>
           </div>
 
-          <div className="bg-gradient-to-br from-green-50 to-green-100 rounded-lg p-4 border border-green-200">
+          <div className="bg-gradient-to-br from-green-50 to-green-100 dark:from-green-900/30 dark:to-green-800/30 rounded-lg p-4 border border-green-200 dark:border-green-700">
             <div className="flex items-start space-x-3">
-              <Users className="h-5 w-5 text-green-600 mt-0.5 flex-shrink-0" />
+              <Users className="h-5 w-5 text-green-600 dark:text-green-400 mt-0.5 flex-shrink-0" />
               <div className="text-left">
-                <h3 className="font-semibold text-gray-900 text-sm">
+                <h3 className="font-semibold text-gray-900 dark:text-white text-sm">
                   Detailed Requirements
                 </h3>
-                <p className="text-xs text-gray-700 mt-1">
+                <p className="text-xs text-gray-700 dark:text-gray-300 mt-1">
                   Skills, knowledge, abilities, and education requirements.
                 </p>
               </div>
             </div>
           </div>
 
-          <div className="bg-gradient-to-br from-purple-50 to-purple-100 rounded-lg p-4 border border-purple-200">
+          <div className="bg-gradient-to-br from-purple-50 to-purple-100 dark:from-purple-900/30 dark:to-purple-800/30 rounded-lg p-4 border border-purple-200 dark:border-purple-700">
             <div className="flex items-start space-x-3">
-              <Briefcase className="h-5 w-5 text-purple-600 mt-0.5 flex-shrink-0" />
+              <Briefcase className="h-5 w-5 text-purple-600 dark:text-purple-400 mt-0.5 flex-shrink-0" />
               <div className="text-left">
-                <h3 className="font-semibold text-gray-900 text-sm">
+                <h3 className="font-semibold text-gray-900 dark:text-white text-sm">
                   Real Job Data
                 </h3>
-                <p className="text-xs text-gray-700 mt-1">
+                <p className="text-xs text-gray-700 dark:text-gray-300 mt-1">
                   Data from O*NET, the primary US occupational source.
                 </p>
               </div>
@@ -212,13 +212,13 @@ function JobSelectionPage() {
       {/* Selected Occupation Details */}
       {selectedOccupation && (
         <div className="space-y-6">
-          <div className="bg-primary-50 border border-primary-200 rounded-lg p-4">
+          <div className="bg-primary-50 dark:bg-primary-900/30 border border-primary-200 dark:border-primary-700 rounded-lg p-4">
             <div className="flex items-center justify-between">
               <div>
-                <h3 className="text-lg font-semibold text-gray-900">
+                <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
                   Selected: {selectedOccupation.title}
                 </h3>
-                <p className="text-sm text-gray-600 mt-1">
+                <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
                   O*NET Code: {selectedOccupation.code}
                 </p>
               </div>

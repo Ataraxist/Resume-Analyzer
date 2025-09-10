@@ -249,10 +249,10 @@ function AnalysisPage() {
       <div className="min-h-[60vh] flex items-center justify-center">
         <div className="text-center">
           <Loader2 className="h-12 w-12 text-primary-600 animate-spin mx-auto mb-4" />
-          <h2 className="text-xl font-semibold text-gray-900 mb-2">
+          <h2 className="text-xl font-semibold text-gray-900 dark:text-white mb-2">
             Loading Analysis...
           </h2>
-          <p className="text-gray-600">
+          <p className="text-gray-600 dark:text-gray-300">
             Retrieving your saved analysis results
           </p>
         </div>
@@ -266,10 +266,10 @@ function AnalysisPage() {
       <div className="min-h-[60vh] flex items-center justify-center">
         <div className="text-center max-w-md">
           <AlertCircle className="h-12 w-12 text-danger-600 mx-auto mb-4" />
-          <h2 className="text-xl font-semibold text-gray-900 mb-2">
+          <h2 className="text-xl font-semibold text-gray-900 dark:text-white mb-2">
             No Analysis Data
           </h2>
-          <p className="text-gray-600 mb-6">
+          <p className="text-gray-600 dark:text-gray-300 mb-6">
             Unable to load analysis. Please start a new analysis from the careers page.
           </p>
           <button
@@ -300,10 +300,10 @@ function AnalysisPage() {
         
         {/* Show header */}
         <div className="mb-8">
-          <h1 className="text-3xl font-bold text-gray-900 mb-1">
+          <h1 className="text-3xl font-bold text-gray-900 dark:text-white mb-1">
             {occupationTitle} Career Readiness Assessment
           </h1>
-          <p className="text-sm text-gray-500">
+          <p className="text-sm text-gray-500 dark:text-gray-400">
             {isStreaming ? 'Assessing your career readiness...' : occupationCode}
           </p>
         </div>
@@ -328,11 +328,11 @@ function AnalysisPage() {
         {!error ? (
           <>
             <Loader2 className="h-12 w-12 text-primary-600 animate-spin mx-auto mb-4" />
-            <h2 className="text-xl font-semibold text-gray-900 mb-2">
+            <h2 className="text-xl font-semibold text-gray-900 dark:text-white mb-2">
               Initializing analysis...
             </h2>
             {selectedOccupation && (
-              <p className="text-gray-600">
+              <p className="text-gray-600 dark:text-gray-300">
                 Preparing to assess your readiness for {selectedOccupation.title}
               </p>
             )}

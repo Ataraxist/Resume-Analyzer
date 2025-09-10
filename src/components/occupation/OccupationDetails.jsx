@@ -53,22 +53,22 @@ function OccupationDetails({ occupation, onLoadComplete }) {
           <div className="card">
             <div className="flex items-center mb-4">
               <Briefcase className="h-5 w-5 text-primary-600 mr-2" />
-              <h3 className="text-lg font-semibold text-gray-900">Overview</h3>
+              <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Overview</h3>
             </div>
             <div className="space-y-4">
-              <p className="text-sm text-gray-600">
+              <p className="text-sm text-gray-600 dark:text-gray-300">
                 {details?.occupation?.description || occupation.description}
               </p>
               
               {details?.bright_outlook && (
-                <div className="p-3 bg-success-50 border border-success-200 rounded-lg">
+                <div className="p-3 bg-success-50 dark:bg-success-900/30 border border-success-200 dark:border-success-700 rounded-lg">
                   <div className="flex items-center">
-                    <Sparkles className="h-4 w-4 text-success-600 mr-2" />
-                    <p className="text-sm font-medium text-success-800">
+                    <Sparkles className="h-4 w-4 text-success-600 dark:text-success-400 mr-2" />
+                    <p className="text-sm font-medium text-success-800 dark:text-success-300">
                       Bright Outlook Occupation
                     </p>
                   </div>
-                  <p className="text-xs text-success-600 mt-1">
+                  <p className="text-xs text-success-600 dark:text-success-400 mt-1">
                     This occupation is expected to grow rapidly in the coming years
                   </p>
                 </div>
@@ -81,8 +81,8 @@ function OccupationDetails({ occupation, onLoadComplete }) {
             <div className="card">
               <div className="flex items-center mb-4">
                 <Target className="h-5 w-5 text-primary-600 mr-2" />
-                <h3 className="text-lg font-semibold text-gray-900">Key Tasks</h3>
-                <span className="ml-auto text-sm text-gray-500">
+                <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Key Tasks</h3>
+                <span className="ml-auto text-sm text-gray-500 dark:text-gray-400">
                   {details.tasks.length} total
                 </span>
               </div>
@@ -90,7 +90,7 @@ function OccupationDetails({ occupation, onLoadComplete }) {
                 {details.tasks.slice(0, expandedTasks ? details.tasks.length : 10).map((task, idx) => (
                   <div key={idx} className="flex items-start">
                     <span className="text-primary-500 mr-3">•</span>
-                    <p className="text-sm text-gray-700 flex-1">{task.task_text}</p>
+                    <p className="text-sm text-gray-700 dark:text-gray-300 flex-1">{task.task_text}</p>
                   </div>
                 ))}
                 {details.tasks.length > 10 && (
@@ -119,9 +119,9 @@ function OccupationDetails({ occupation, onLoadComplete }) {
           <div className="card">
             <div className="flex items-center mb-4">
               <Code className="h-5 w-5 text-primary-600 mr-2" />
-              <h3 className="text-lg font-semibold text-gray-900">Required Skills</h3>
+              <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Required Skills</h3>
               {details?.skills && details.skills.length > 0 && (
-                <span className="ml-auto text-sm text-gray-500">
+                <span className="ml-auto text-sm text-gray-500 dark:text-gray-400">
                   {details.skills.length} skills
                 </span>
               )}
@@ -134,7 +134,7 @@ function OccupationDetails({ occupation, onLoadComplete }) {
                     .map((skill, idx) => (
                       <div
                         key={idx}
-                        className="px-3 py-1.5 bg-blue-50 text-blue-700 rounded-full text-sm font-medium border border-blue-200"
+                        className="px-3 py-1.5 bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 rounded-full text-sm font-medium border border-blue-200 dark:border-blue-700"
                         title={skill.skill_description}
                       >
                         {skill.skill_name}
@@ -166,8 +166,8 @@ function OccupationDetails({ occupation, onLoadComplete }) {
                 )}
               </>
             ) : (
-              <div className="p-4 bg-gray-50 rounded-lg border border-gray-200">
-                <p className="text-sm text-gray-600 text-center">
+              <div className="p-4 bg-gray-50 dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700">
+                <p className="text-sm text-gray-600 dark:text-gray-400 text-center">
                   No skills data available for this occupation
                 </p>
               </div>
@@ -178,9 +178,9 @@ function OccupationDetails({ occupation, onLoadComplete }) {
           <div className="card">
             <div className="flex items-center mb-4">
               <BookOpen className="h-5 w-5 text-primary-600 mr-2" />
-              <h3 className="text-lg font-semibold text-gray-900">Knowledge Areas</h3>
+              <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Knowledge Areas</h3>
               {details?.knowledge && details.knowledge.length > 0 && (
-                <span className="ml-auto text-sm text-gray-500">
+                <span className="ml-auto text-sm text-gray-500 dark:text-gray-400">
                   {details.knowledge.length} areas
                 </span>
               )}
@@ -193,21 +193,21 @@ function OccupationDetails({ occupation, onLoadComplete }) {
                     .map((item, idx) => (
                       <div 
                         key={idx} 
-                        className="p-3 bg-gray-50 rounded-lg border border-gray-200"
+                        className="p-3 bg-gray-50 dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700"
                         title={item.knowledge_description}
                       >
-                        <p className="text-sm font-medium text-gray-900">
+                        <p className="text-sm font-medium text-gray-900 dark:text-white">
                           {item.knowledge_name}
                         </p>
                         {item.importance_score && (
                           <div className="mt-2">
-                            <div className="flex items-center justify-between text-xs text-gray-500 mb-1">
+                            <div className="flex items-center justify-between text-xs text-gray-500 dark:text-gray-400 mb-1">
                               <span>Importance</span>
                               <span>{Math.round(item.importance_score)}/100</span>
                             </div>
-                            <div className="w-full bg-gray-200 rounded-full h-1.5">
+                            <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-1.5">
                               <div 
-                                className="bg-primary-500 h-1.5 rounded-full" 
+                                className="bg-primary-500 dark:bg-primary-400 h-1.5 rounded-full" 
                                 style={{ width: `${item.importance_score}%` }}
                               />
                             </div>
@@ -236,8 +236,8 @@ function OccupationDetails({ occupation, onLoadComplete }) {
                 )}
               </>
             ) : (
-              <div className="p-4 bg-gray-50 rounded-lg border border-gray-200">
-                <p className="text-sm text-gray-600 text-center">
+              <div className="p-4 bg-gray-50 dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700">
+                <p className="text-sm text-gray-600 dark:text-gray-400 text-center">
                   No knowledge data available for this occupation
                 </p>
               </div>
@@ -248,9 +248,9 @@ function OccupationDetails({ occupation, onLoadComplete }) {
           <div className="card">
             <div className="flex items-center mb-4">
               <Wrench className="h-5 w-5 text-primary-600 mr-2" />
-              <h3 className="text-lg font-semibold text-gray-900">Tools & Technology</h3>
+              <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Tools & Technology</h3>
               {details?.tools && details.tools.length > 0 && (
-                <span className="ml-auto text-sm text-gray-500">
+                <span className="ml-auto text-sm text-gray-500 dark:text-gray-400">
                   {details.tools.length} tools
                 </span>
               )}
@@ -263,7 +263,7 @@ function OccupationDetails({ occupation, onLoadComplete }) {
                     .map((tool, idx) => (
                       <div
                         key={idx}
-                        className="px-3 py-1.5 bg-amber-50 text-amber-700 rounded-full text-sm font-medium border border-amber-200"
+                        className="px-3 py-1.5 bg-amber-50 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300 rounded-full text-sm font-medium border border-amber-200 dark:border-amber-700"
                         title={tool.tool_description}
                       >
                         {tool.tool_name}
@@ -290,8 +290,8 @@ function OccupationDetails({ occupation, onLoadComplete }) {
                 )}
               </>
             ) : (
-              <div className="p-4 bg-gray-50 rounded-lg border border-gray-200">
-                <p className="text-sm text-gray-600 text-center">
+              <div className="p-4 bg-gray-50 dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700">
+                <p className="text-sm text-gray-600 dark:text-gray-400 text-center">
                   No tools data available for this occupation
                 </p>
               </div>
@@ -303,8 +303,8 @@ function OccupationDetails({ occupation, onLoadComplete }) {
             <div className="card">
               <div className="flex items-center mb-4">
                 <Code className="h-5 w-5 text-primary-600 mr-2" />
-                <h3 className="text-lg font-semibold text-gray-900">Technology Skills</h3>
-                <span className="ml-auto text-sm text-gray-500">
+                <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Technology Skills</h3>
+                <span className="ml-auto text-sm text-gray-500 dark:text-gray-400">
                   {details.technologySkills.length} skills
                   {details.technologySkills.filter(t => t.hot_technology).length > 0 && (
                     <span className="ml-2">
@@ -317,7 +317,7 @@ function OccupationDetails({ occupation, onLoadComplete }) {
                 {details.technologySkills.slice(0, expandedTechSkills ? details.technologySkills.length : 30).map((tech, idx) => (
                   <div
                     key={idx}
-                    className="flex items-center gap-1 px-3 py-1.5 bg-purple-50 text-purple-700 border-purple-200 rounded-full text-sm font-medium border"
+                    className="flex items-center gap-1 px-3 py-1.5 bg-purple-50 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300 border-purple-200 dark:border-purple-700 rounded-full text-sm font-medium border"
                     title={tech.hot_technology ? "Hot Technology - High demand in the market" : tech.skill_name}
                   >
                     {tech.hot_technology && (
@@ -353,7 +353,7 @@ function OccupationDetails({ occupation, onLoadComplete }) {
             <div className="card">
             <div className="flex items-center mb-4">
               <GraduationCap className="h-5 w-5 text-primary-600 mr-2" />
-              <h3 className="text-lg font-semibold text-gray-900">Education Requirements</h3>
+              <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Education Requirements</h3>
             </div>
             {details?.education && details.education.length > 0 ? (
               // Check if any education item has percentage data
@@ -361,22 +361,22 @@ function OccupationDetails({ occupation, onLoadComplete }) {
                 // A. Full view with percentages
                 <div className="space-y-3">
                   {details.education.map((edu, idx) => (
-                    <div key={idx} className="p-4 bg-gray-50 rounded-lg border border-gray-200">
+                    <div key={idx} className="p-4 bg-gray-50 dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700">
                       <div className="flex justify-between items-center mb-2">
-                        <p className="text-sm font-medium text-gray-900">
+                        <p className="text-sm font-medium text-gray-900 dark:text-white">
                           {edu.category}
                         </p>
                         <span className="text-sm font-semibold text-primary-600">
                           {edu.percentage}%
                         </span>
                       </div>
-                      <div className="w-full bg-gray-200 rounded-full h-2">
+                      <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2">
                         <div 
-                          className="bg-primary-600 h-2 rounded-full transition-all duration-500" 
+                          className="bg-primary-600 dark:bg-primary-400 h-2 rounded-full transition-all duration-500" 
                           style={{ width: `${edu.percentage}%` }}
                         />
                       </div>
-                      <p className="text-xs text-gray-500 mt-2">
+                      <p className="text-xs text-gray-500 dark:text-gray-400 mt-2">
                         {edu.percentage}% of workers have this level of education
                       </p>
                     </div>
@@ -386,21 +386,21 @@ function OccupationDetails({ occupation, onLoadComplete }) {
                 // B. Simple view without percentages
                 <div className="space-y-2">
                   {details.education.map((edu, idx) => (
-                    <div key={idx} className="p-3 bg-gray-50 rounded-lg border border-gray-200">
-                      <p className="text-sm font-medium text-gray-900">
+                    <div key={idx} className="p-3 bg-gray-50 dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700">
+                      <p className="text-sm font-medium text-gray-900 dark:text-white">
                         {edu.category}
                       </p>
                     </div>
                   ))}
-                  <p className="text-xs text-gray-500 mt-2 italic">
+                  <p className="text-xs text-gray-500 dark:text-gray-400 mt-2 italic">
                     Typical education requirements for this occupation
                   </p>
                 </div>
               )
             ) : (
               // C. No data available
-              <div className="p-4 bg-gray-50 rounded-lg border border-gray-200">
-                <p className="text-sm text-gray-600 text-center">
+              <div className="p-4 bg-gray-50 dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700">
+                <p className="text-sm text-gray-600 dark:text-gray-400 text-center">
                   No education data available for this occupation
                 </p>
               </div>
@@ -410,11 +410,11 @@ function OccupationDetails({ occupation, onLoadComplete }) {
 
           {/* Job Zone Information */}
           {details?.jobZone ? (
-            <div className="relative bg-primary-50 rounded-lg border border-primary-200 overflow-hidden">
+            <div className="relative bg-primary-50 dark:bg-primary-900/30 rounded-lg border border-primary-200 dark:border-primary-700 overflow-hidden">
               {/* Large background number */}
               <div className="absolute right-0 top-0 bottom-10 flex items-center pointer-events-none">
                 <span 
-                  className="text-white font-bold select-none"
+                  className="text-white dark:text-gray-800 font-bold select-none"
                   style={{
                     fontSize: '16rem',
                     lineHeight: 1,
@@ -431,25 +431,25 @@ function OccupationDetails({ occupation, onLoadComplete }) {
               <div className="relative z-10 p-4">
                 <div className="flex items-center mb-3">
                   <Briefcase className="h-5 w-5 text-primary-600 mr-2" />
-                  <h3 className="text-lg font-semibold text-gray-900">{details.jobZone.title}</h3>
+                  <h3 className="text-lg font-semibold text-gray-900 dark:text-white">{details.jobZone.title}</h3>
                 </div>
                 {details.jobZone.education && (
                   <div className="mb-3">
-                    <p className="text-sm text-gray-600">
+                    <p className="text-sm text-gray-600 dark:text-gray-300">
                       <span className="font-medium">Education:</span> {details.jobZone.education}
                     </p>
                   </div>
                 )}
                 {details.jobZone.related_experience && (
                   <div className="mb-3">
-                    <p className="text-sm text-gray-600">
+                    <p className="text-sm text-gray-600 dark:text-gray-300">
                       <span className="font-medium">Experience:</span> {details.jobZone.related_experience}
                     </p>
                   </div>
                 )}
                 {details.jobZone.on_the_job_training && (
                   <div>
-                    <p className="text-sm text-gray-600">
+                    <p className="text-sm text-gray-600 dark:text-gray-300">
                       <span className="font-medium">Training:</span> {details.jobZone.on_the_job_training}
                     </p>
                   </div>
@@ -458,8 +458,8 @@ function OccupationDetails({ occupation, onLoadComplete }) {
             </div>
           ) : (
             <div className="card">
-              <div className="p-4 bg-gray-50 rounded-lg border border-gray-200">
-                <p className="text-sm text-gray-600 text-center">
+              <div className="p-4 bg-gray-50 dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700">
+                <p className="text-sm text-gray-600 dark:text-gray-400 text-center">
                   No job zone data available for this occupation
                 </p>
               </div>

@@ -77,7 +77,7 @@ function EditableList({
                 onChange={(e) => setNewItem(e.target.value)}
                 onBlur={handleAdd}
                 onKeyDown={handleKeyDown}
-                className="bg-transparent border-none outline-none text-xs w-24"
+                className="bg-transparent border-none outline-none text-xs w-24 dark:text-inherit"
                 placeholder={placeholder}
                 autoFocus
               />
@@ -85,7 +85,7 @@ function EditableList({
           ) : (
             <button
               onClick={() => setIsAdding(true)}
-              className="inline-flex items-center gap-1 px-2 py-0.5 text-xs text-gray-600 hover:text-primary-600 hover:bg-gray-100 rounded-full transition-colors"
+              className="inline-flex items-center gap-1 px-2 py-0.5 text-xs text-gray-600 dark:text-gray-400 hover:text-primary-600 dark:hover:text-primary-400 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-full transition-colors"
               title={`Add ${placeholder}`}
             >
               <Plus className="h-3 w-3" />

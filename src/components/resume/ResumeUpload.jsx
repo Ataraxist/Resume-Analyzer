@@ -76,13 +76,13 @@ function ResumeUpload({ onUpload, onGoogleDocsImport }) {
   return (
     <div>
       {/* Tab Selector */}
-      <div className="flex border-b border-gray-200 mb-6">
+      <div className="flex border-b border-gray-200 dark:border-gray-700 mb-6">
         <button
           onClick={() => setActiveTab('file')}
           className={`flex items-center px-4 py-2 border-b-2 transition-colors ${
             activeTab === 'file'
               ? 'border-primary-500 text-primary-600'
-              : 'border-transparent text-gray-500 hover:text-gray-700'
+              : 'border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300'
           }`}
         >
           <Upload className="h-4 w-4 mr-2" />
@@ -93,7 +93,7 @@ function ResumeUpload({ onUpload, onGoogleDocsImport }) {
           className={`flex items-center px-4 py-2 border-b-2 transition-colors ${
             activeTab === 'googledocs'
               ? 'border-primary-500 text-primary-600'
-              : 'border-transparent text-gray-500 hover:text-gray-700'
+              : 'border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300'
           }`}
         >
           <Globe className="h-4 w-4 mr-2" />
@@ -108,30 +108,30 @@ function ResumeUpload({ onUpload, onGoogleDocsImport }) {
             {...getRootProps()}
             className={`border-2 border-dashed rounded-lg p-8 text-center cursor-pointer transition-colors ${
               isDragActive 
-                ? 'border-primary-500 bg-primary-50' 
-                : 'border-gray-300 hover:border-primary-400 hover:bg-gray-50'
+                ? 'border-primary-500 bg-primary-50 dark:bg-primary-900/20' 
+                : 'border-gray-300 dark:border-gray-600 hover:border-primary-400 dark:hover:border-primary-500 hover:bg-gray-50 dark:hover:bg-gray-800'
             }`}
           >
             <input {...getInputProps()} />
             
             <div className="flex flex-col items-center">
               <div className={`p-4 rounded-full mb-4 ${
-                isDragActive ? 'bg-primary-100' : 'bg-gray-100'
+                isDragActive ? 'bg-primary-100 dark:bg-primary-900/30' : 'bg-gray-100 dark:bg-gray-800'
               }`}>
                 <Upload className={`h-8 w-8 ${
-                  isDragActive ? 'text-primary-600' : 'text-gray-400'
+                  isDragActive ? 'text-primary-600 dark:text-primary-400' : 'text-gray-400 dark:text-gray-500'
                 }`} />
               </div>
               
-              <p className="text-lg font-medium text-gray-900 mb-2">
+              <p className="text-lg font-medium text-gray-900 dark:text-white mb-2">
                 {isDragActive ? 'Drop your resume here' : 'Drag & drop your resume'}
               </p>
               
-              <p className="text-sm text-gray-600 mb-4">
-                or <span className="text-primary-600 font-medium">browse files</span>
+              <p className="text-sm text-gray-600 dark:text-gray-300 mb-4">
+                or <span className="text-primary-600 dark:text-primary-400 font-medium">browse files</span>
               </p>
               
-              <p className="text-xs text-gray-500">
+              <p className="text-xs text-gray-500 dark:text-gray-400">
                 Supported formats: PDF, DOCX, TXT (Max 10MB)
               </p>
             </div>
@@ -142,9 +142,9 @@ function ResumeUpload({ onUpload, onGoogleDocsImport }) {
       {/* Google Docs Import Tab */}
       {activeTab === 'googledocs' && (
         <div className="space-y-4">
-          <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-            <h3 className="text-sm font-medium text-blue-900 mb-2">How to import from Google Docs:</h3>
-            <ol className="text-sm text-blue-700 space-y-1 ml-4">
+          <div className="bg-blue-50 dark:bg-blue-900/30 border border-blue-200 dark:border-blue-700 rounded-lg p-4">
+            <h3 className="text-sm font-medium text-blue-900 dark:text-blue-100 mb-2">How to import from Google Docs:</h3>
+            <ol className="text-sm text-blue-700 dark:text-blue-300 space-y-1 ml-4">
               <li>1. Open your resume in Google Docs</li>
               <li>2. Click Share → Get link</li>
               <li>3. Set to "Anyone with the link can view"</li>
@@ -153,7 +153,7 @@ function ResumeUpload({ onUpload, onGoogleDocsImport }) {
           </div>
           
           <div>
-            <label htmlFor="googledocs-url" className="block text-sm font-medium text-gray-700 mb-2">
+            <label htmlFor="googledocs-url" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
               Google Docs URL
             </label>
             <div className="flex space-x-2">
@@ -167,8 +167,8 @@ function ResumeUpload({ onUpload, onGoogleDocsImport }) {
                     setUrlError('');
                   }}
                   placeholder="https://docs.google.com/document/d/..."
-                  className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 ${
-                    urlError ? 'border-danger-500' : 'border-gray-300'
+                  className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 dark:bg-gray-800 dark:text-white ${
+                    urlError ? 'border-danger-500' : 'border-gray-300 dark:border-gray-600'
                   }`}
                   disabled={isImporting}
                 />
@@ -179,7 +179,7 @@ function ResumeUpload({ onUpload, onGoogleDocsImport }) {
               <button
                 onClick={handleGoogleDocsImport}
                 disabled={isImporting || !googleDocsUrl.trim()}
-                className="px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 disabled:bg-gray-300 disabled:cursor-not-allowed transition-colors flex items-center"
+                className="px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 disabled:bg-gray-300 dark:disabled:bg-gray-700 disabled:cursor-not-allowed transition-colors flex items-center"
               >
                 {isImporting ? (
                   <>
@@ -196,7 +196,7 @@ function ResumeUpload({ onUpload, onGoogleDocsImport }) {
             </div>
           </div>
           
-          <div className="text-xs text-gray-500 flex items-start">
+          <div className="text-xs text-gray-500 dark:text-gray-400 flex items-start">
             <Globe className="h-3 w-3 mr-1 mt-0.5 flex-shrink-0" />
             <span>Make sure your document is set to "Anyone with the link can view" for import to work</span>
           </div>

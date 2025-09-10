@@ -9,9 +9,9 @@ function LoadingSpinner({ size = 'medium', text = 'Loading...' }) {
   
   return (
     <div className="flex flex-col items-center justify-center p-8">
-      <Loader2 className={`${sizeClasses[size]} text-primary-600 animate-spin`} />
+      <Loader2 className={`${sizeClasses[size]} text-primary-600 dark:text-primary-400 animate-spin`} />
       {text && (
-        <p className="mt-4 text-gray-600 text-sm">{text}</p>
+        <p className="mt-4 text-gray-600 dark:text-gray-400 text-sm">{text}</p>
       )}
     </div>
   );

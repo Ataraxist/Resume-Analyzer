@@ -23,14 +23,14 @@ function DimensionRadarChart({ data, selectedDimension, onDimensionSelect, onDim
   const CustomTooltip = ({ active, payload }) => {
     if (active && payload && payload[0]) {
       return (
-        <div className="bg-white px-3 py-2 rounded-lg shadow-lg border border-gray-200">
-          <p className="text-sm font-medium text-gray-900">
+        <div className="bg-white dark:bg-gray-800 px-3 py-2 rounded-lg shadow-lg border border-gray-200 dark:border-gray-700">
+          <p className="text-sm font-medium text-gray-900 dark:text-white">
             {payload[0].payload.dimension}
           </p>
-          <p className="text-sm text-primary-600">
+          <p className="text-sm text-primary-600 dark:text-primary-400">
             Score: {payload[0].value}%
           </p>
-          <p className="text-xs text-gray-500 mt-1">
+          <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
             Click to view details
           </p>
         </div>
@@ -144,30 +144,30 @@ function DimensionRadarChart({ data, selectedDimension, onDimensionSelect, onDim
         </div>
         
         {/* Legend - Right side on large screens, below on small screens */}
-        <div className="mt-4 lg:mt-0 pt-4 lg:pt-0 border-t lg:border-t-0 lg:border-l border-gray-200 lg:pl-8 lg:w-80">
+        <div className="mt-4 lg:mt-0 pt-4 lg:pt-0 border-t lg:border-t-0 lg:border-l border-gray-200 dark:border-gray-700 lg:pl-8 lg:w-80">
           <div className="space-y-2">
             {chartData.map((item, idx) => {
               const isSelected = selectedDimension === item.key;
               const isHovered = localHoveredDimension === item.key || externalHoveredDimension === item.key;
               
               const getColorClass = (score) => {
-                if (score >= 70) return 'text-success-600';
-                if (score >= 50) return 'text-warning-600';
-                return 'text-danger-600';
+                if (score >= 70) return 'text-success-600 dark:text-success-400';
+                if (score >= 50) return 'text-warning-600 dark:text-warning-400';
+                return 'text-danger-600 dark:text-danger-400';
               };
               
               return (
                 <div 
                   key={idx} 
                   className={`flex items-center justify-between p-3 rounded cursor-pointer transition-all ${
-                    isSelected ? 'bg-primary-100 ring-2 ring-primary-500' : 
-                    isHovered ? 'bg-gray-50' : ''
+                    isSelected ? 'bg-primary-100 dark:bg-primary-900/30 ring-2 ring-primary-500 dark:ring-primary-400' : 
+                    isHovered ? 'bg-gray-50 dark:bg-gray-800' : ''
                   }`}
                   onClick={() => handleDimensionClick(item.key)}
                   onMouseEnter={() => handleHoverStart(item.key)}
                   onMouseLeave={handleHoverEnd}
                 >
-                  <span className={`text-sm ${isSelected ? 'font-medium text-primary-900' : 'text-gray-600'}`}>
+                  <span className={`text-sm ${isSelected ? 'font-medium text-primary-900 dark:text-primary-100' : 'text-gray-600 dark:text-gray-400'}`}>
                     {item.dimension}
                   </span>
                   <span className={`text-sm font-semibold ${getColorClass(item.score)}`}>

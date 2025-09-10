@@ -42,7 +42,7 @@ function Modal({ isOpen, onClose, children, title, maxWidth = 'max-w-md' }) {
       <div className="flex min-h-full items-center justify-center p-4">
         <div
           ref={modalRef}
-          className={`relative transform overflow-hidden rounded-2xl bg-white shadow-xl transition-all w-full ${maxWidth}`}
+          className={`relative transform overflow-hidden rounded-2xl bg-white dark:bg-gray-800 shadow-xl transition-all w-full ${maxWidth}`}
           onClick={(e) => e.stopPropagation()}
           role="dialog"
           aria-modal="true"
@@ -51,7 +51,7 @@ function Modal({ isOpen, onClose, children, title, maxWidth = 'max-w-md' }) {
           {/* Close button */}
           <button
             onClick={onClose}
-            className="absolute right-4 top-4 text-gray-400 hover:text-gray-600 transition-colors"
+            className="absolute right-4 top-4 text-gray-400 hover:text-gray-600 dark:text-gray-500 dark:hover:text-gray-300 transition-colors"
             aria-label="Close modal"
           >
             <X className="h-5 w-5" />
@@ -59,8 +59,8 @@ function Modal({ isOpen, onClose, children, title, maxWidth = 'max-w-md' }) {
           
           {/* Title if provided */}
           {title && (
-            <div className="border-b border-gray-200 px-6 py-4">
-              <h2 className="text-xl font-semibold text-gray-900">{title}</h2>
+            <div className="border-b border-gray-200 dark:border-gray-700 px-6 py-4">
+              <h2 className="text-xl font-semibold text-gray-900 dark:text-white">{title}</h2>
             </div>
           )}
           

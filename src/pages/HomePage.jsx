@@ -39,17 +39,17 @@ function HomePage() {
     <div className="max-w-7xl mx-auto">
       {/* Hero Section */}
       <div className="text-center py-16">
-        <h1 className="text-5xl font-bold text-gray-900 mb-6">
+        <h1 className="text-5xl font-bold text-gray-900 dark:text-white mb-6">
           AI-Powered Career Development Advisor
         </h1>
-        <p className="text-xl text-gray-600 mb-8 max-w-3xl mx-auto">
+        <p className="text-xl text-gray-600 dark:text-gray-300 mb-8 max-w-3xl mx-auto">
           Bridge the gap between your current skills and career goals with personalized 
           guidance powered by O*NET occupational data.
         </p>
         
         {/* Process Steps */}
-        <div className="py-12 bg-gray-50 -mx-4 px-4 rounded-lg mb-8">
-          <h2 className="text-3xl font-bold text-center text-gray-900 mb-12">
+        <div className="py-12 bg-gray-50 dark:bg-gray-800 -mx-4 px-4 rounded-lg mb-8">
+          <h2 className="text-3xl font-bold text-center text-gray-900 dark:text-white mb-12">
             Simple 3-Step Process
           </h2>
           <div className="flex flex-col md:flex-row justify-between items-center max-w-4xl mx-auto">
@@ -57,28 +57,28 @@ function HomePage() {
               <div className="w-16 h-16 bg-primary-600 text-white rounded-full flex items-center justify-center text-2xl font-bold mx-auto mb-4">
                 1
               </div>
-              <h3 className="text-lg font-semibold mb-2">Choose Your Career Path</h3>
-              <p className="text-gray-600">Explore 1000+ O*NET career profiles</p>
+              <h3 className="text-lg font-semibold mb-2 dark:text-white">Choose Your Career Path</h3>
+              <p className="text-gray-600 dark:text-gray-300">Explore 1000+ O*NET career profiles</p>
             </div>
             
-            <div className="hidden md:block flex-1 h-1 bg-gray-300 mx-4" />
+            <div className="hidden md:block flex-1 h-1 bg-gray-300 dark:bg-gray-600 mx-4" />
             
             <div className="text-center mb-8 md:mb-0">
               <div className="w-16 h-16 bg-primary-600 text-white rounded-full flex items-center justify-center text-2xl font-bold mx-auto mb-4">
                 2
               </div>
-              <h3 className="text-lg font-semibold mb-2">Share Your Experience</h3>
-              <p className="text-gray-600">Upload resume or import from Google Docs</p>
+              <h3 className="text-lg font-semibold mb-2 dark:text-white">Share Your Experience</h3>
+              <p className="text-gray-600 dark:text-gray-300">Upload resume or import from Google Docs</p>
             </div>
             
-            <div className="hidden md:block flex-1 h-1 bg-gray-300 mx-4" />
+            <div className="hidden md:block flex-1 h-1 bg-gray-300 dark:bg-gray-600 mx-4" />
             
             <div className="text-center">
               <div className="w-16 h-16 bg-primary-600 text-white rounded-full flex items-center justify-center text-2xl font-bold mx-auto mb-4">
                 3
               </div>
-              <h3 className="text-lg font-semibold mb-2">Get Your Career Roadmap</h3>
-              <p className="text-gray-600">Personalized guidance & action plan</p>
+              <h3 className="text-lg font-semibold mb-2 dark:text-white">Get Your Career Roadmap</h3>
+              <p className="text-gray-600 dark:text-gray-300">Personalized guidance & action plan</p>
             </div>
           </div>
         </div>
@@ -99,14 +99,14 @@ function HomePage() {
             return (
               <div key={index} className="card">
                 <div className="flex items-center mb-4">
-                  <div className="p-3 bg-primary-100 rounded-lg">
-                    <Icon className="h-6 w-6 text-primary-600" />
+                  <div className="p-3 bg-primary-100 dark:bg-primary-900/30 rounded-lg">
+                    <Icon className="h-6 w-6 text-primary-600 dark:text-primary-400" />
                   </div>
-                  <h3 className="ml-3 text-lg font-semibold text-gray-900">
+                  <h3 className="ml-3 text-lg font-semibold text-gray-900 dark:text-white">
                     {feature.title}
                   </h3>
                 </div>
-                <p className="text-gray-600">{feature.description}</p>
+                <p className="text-gray-600 dark:text-gray-300">{feature.description}</p>
               </div>
             );
           })}

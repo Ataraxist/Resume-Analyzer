@@ -12,6 +12,9 @@ import { normalizeDimensionScore } from '../../utils/analysisDataNormalizer';
 import { formatDimensionName } from '../../utils/statusFormatters';
 
 // Helper to get color class based on fit category
+// Dimension order for auto-cycling and display consistency
+const DIMENSION_ORDER = ['tasks', 'skills', 'education', 'workActivities', 'knowledge', 'tools'];
+
 const getFitCategoryColor = (category) => {
   const categoryLower = (category || '').toLowerCase();
   if (categoryLower.includes('excellent')) return 'text-green-600';
@@ -22,7 +25,7 @@ const getFitCategoryColor = (category) => {
 };
 
 const formatDimensionScores = (scores) => {
-  return Object.entries(scores).map(([key, value]) => {
+  const entries = Object.entries(scores).map(([key, value]) => {
     const normalized = normalizeDimensionScore(value);
     return {
       dimension: formatDimensionName(key),
@@ -35,10 +38,23 @@ const formatDimensionScores = (scores) => {
       alternativeTools: value.alternativeTools || []
     };
   });
+  
+  // Sort by DIMENSION_ORDER to ensure consistent display
+  return entries.sort((a, b) => {
+    const indexA = DIMENSION_ORDER.indexOf(a.key);
+    const indexB = DIMENSION_ORDER.indexOf(b.key);
+    
+    // If both are in the order array, sort by their position
+    if (indexA !== -1 && indexB !== -1) {
+      return indexA - indexB;
+    }
+    // If only one is in the order array, it comes first
+    if (indexA !== -1) return -1;
+    if (indexB !== -1) return 1;
+    // If neither is in the order array, maintain original order
+    return 0;
+  });
 };
-
-// Dimension order for auto-cycling - now includes 6 dimensions
-const DIMENSION_ORDER = ['tasks', 'skills', 'education', 'workActivities', 'knowledge', 'tools'];
 
 function AnalysisDashboard({ data }) {
   // Default to first available dimension or 'skills'
@@ -82,10 +98,10 @@ function AnalysisDashboard({ data }) {
   
   // Get color based on score
   const getScoreColor = () => {
-    if (overallScore >= 85) return 'text-success-600';
-    if (overallScore >= 70) return 'text-primary-600';
-    if (overallScore >= 50) return 'text-warning-600';
-    return 'text-danger-600';
+    if (overallScore >= 85) return 'text-success-600 dark:text-success-400';
+    if (overallScore >= 70) return 'text-primary-600 dark:text-primary-400';
+    if (overallScore >= 50) return 'text-warning-600 dark:text-warning-400';
+    return 'text-danger-600 dark:text-danger-400';
   };
   
   const Icon = getIcon();
@@ -161,19 +177,19 @@ function AnalysisDashboard({ data }) {
     <div className="space-y-12">
       {/* Overview Section */}
       <section className="w-full">
-        <h2 className="text-2xl font-bold text-gray-900 mb-6 pb-2 border-b border-gray-200">Overview</h2>
+        <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-6 pb-2 border-b border-gray-200 dark:border-gray-700">Overview</h2>
         <div className="space-y-6">
           {/* Analysis Summary Card with Fit Score */}
           {data.isStreaming && !data.overallFitScore && Object.keys(data.dimensionScores || {}).length === 0 ? (
             <AnalysisSummarySkeleton />
           ) : (
             <div className="card">
-              <h3 className="text-xl font-bold text-gray-900 mb-4">Analysis Summary</h3>
+              <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-4">Analysis Summary</h3>
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                 {/* Left Column - Fit Score */}
                 <div className="space-y-4">
                   <div>
-                    <p className="text-sm text-gray-600 mb-2">Overall Fit Score</p>
+                    <p className="text-sm text-gray-600 dark:text-gray-400 mb-2">Overall Fit Score</p>
                     <div className={`text-5xl font-bold ${getScoreColor()} mb-4`}>
                       {Math.round(overallScore)}%
                     </div>
@@ -185,7 +201,7 @@ function AnalysisDashboard({ data }) {
                         </span>
                       </span>
                       {fitCategory.description && (
-                        <p className="text-sm text-gray-600 mt-2">
+                        <p className="text-sm text-gray-600 dark:text-gray-400 mt-2">
                           {fitCategory.description}
                         </p>
                       )}
@@ -196,7 +212,7 @@ function AnalysisDashboard({ data }) {
                 {/* Right Column - Existing Summary Content */}
                 <div className="space-y-3">
                   <div>
-                    <p className="text-sm text-gray-600">Key Strengths</p>
+                    <p className="text-sm text-gray-600 dark:text-gray-400">Key Strengths</p>
                     <div className="flex flex-wrap gap-2 mt-1">
                       {data.scoreBreakdown?.strengths?.slice(0, 3).map((item) => (
                         <span key={item.dimension} className="badge badge-success">
@@ -219,7 +235,7 @@ function AnalysisDashboard({ data }) {
                   </div>
                   
                   <div>
-                    <p className="text-sm text-gray-600">Areas for Improvement</p>
+                    <p className="text-sm text-gray-600 dark:text-gray-400">Areas for Improvement</p>
                     <div className="flex flex-wrap gap-2 mt-1">
                       {data.scoreBreakdown?.critical?.slice(0, 3).map((item) => (
                         <span key={item.dimension} className="badge badge-danger">
@@ -274,7 +290,7 @@ function AnalysisDashboard({ data }) {
       
       {/* Dimension Analysis Section */}
       <section className="w-full">
-        <h2 className="text-2xl font-bold text-gray-900 mb-6 pb-2 border-b border-gray-200">Dimension Analysis</h2>
+        <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-6 pb-2 border-b border-gray-200 dark:border-gray-700">Dimension Analysis</h2>
         <div className="w-full">
           {/* Show skeleton if streaming and dimension not ready, otherwise show card */}
           {data.isStreaming && !data.dimensionScores[displayDimension] ? (
@@ -291,7 +307,7 @@ function AnalysisDashboard({ data }) {
       {/* Improvement Impact Section */}
       {data.improvementImpact && data.improvementImpact.length > 0 && (
         <section className="w-full">
-          <h2 className="text-2xl font-bold text-gray-900 mb-6 pb-2 border-b border-gray-200">Score Improvement Strategy</h2>
+          <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-6 pb-2 border-b border-gray-200 dark:border-gray-700">Score Improvement Strategy</h2>
           <ImprovementImpact improvementImpact={data.improvementImpact} />
         </section>
       )}

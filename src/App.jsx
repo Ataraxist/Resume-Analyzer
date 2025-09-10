@@ -1,6 +1,7 @@
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { FirebaseAuthProvider } from './contexts/FirebaseAuthContext';
+import { ThemeProvider } from './contexts/ThemeContext';
 import { ToastProvider } from './contexts/ToastContext';
 import ProtectedRoute from './components/auth/ProtectedRoute';
 import Layout from './components/layout/Layout';
@@ -26,8 +27,9 @@ function App() {
   return (
     <QueryClientProvider client={queryClient}>
       <Router>
-        <FirebaseAuthProvider>
-          <ToastProvider>
+        <ThemeProvider>
+          <FirebaseAuthProvider>
+            <ToastProvider>
             <Routes>
             {/* Mixed public/protected routes with Layout */}
             <Route element={<Layout />}>
@@ -54,8 +56,9 @@ function App() {
               <Route path="*" element={<NotFoundPage />} />
             </Route>
           </Routes>
-          </ToastProvider>
-        </FirebaseAuthProvider>
+            </ToastProvider>
+          </FirebaseAuthProvider>
+        </ThemeProvider>
       </Router>
     </QueryClientProvider>
   );

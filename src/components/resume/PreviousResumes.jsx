@@ -141,7 +141,7 @@ function PreviousResumes({ onSelectResume, onRefresh }) {
 
   if (loading) {
     return (
-      <div className="bg-white rounded-lg border border-gray-200 p-6">
+      <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-6">
         <div className="flex items-center justify-center">
           <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary-600"></div>
         </div>
@@ -154,30 +154,30 @@ function PreviousResumes({ onSelectResume, onRefresh }) {
   }
 
   return (
-    <div className="bg-white rounded-lg border border-gray-200 p-6">
-      <h3 className="text-lg font-semibold text-gray-900 mb-4">Recent Uploads</h3>
+    <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-6">
+      <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">Recent Uploads</h3>
       <div className="space-y-3">
         {resumes.map((resume) => (
           <div
             key={resume.id}
-            className="group border border-gray-200 rounded-lg p-4 hover:border-primary-300 hover:bg-primary-50 transition-all cursor-pointer"
+            className="group border border-gray-200 dark:border-gray-700 rounded-lg p-4 hover:border-primary-300 dark:hover:border-primary-400 hover:bg-primary-50 dark:hover:bg-primary-900/20 transition-all cursor-pointer"
             onClick={() => handleSelectResume(resume)}
           >
             <div className="flex items-center justify-between">
               <div className="flex items-center space-x-3">
-                <FileText className="h-5 w-5 text-gray-400 group-hover:text-primary-600" />
+                <FileText className="h-5 w-5 text-gray-400 dark:text-gray-500 group-hover:text-primary-600 dark:group-hover:text-primary-400" />
                 <div>
-                  <p className="font-medium text-gray-900 group-hover:text-primary-700">
+                  <p className="font-medium text-gray-900 dark:text-white group-hover:text-primary-700 dark:group-hover:text-primary-400">
                     {resume.fileName}
                   </p>
                   <div className="flex items-center space-x-2 mt-1">
-                    <span className="text-sm text-gray-500">
+                    <span className="text-sm text-gray-500 dark:text-gray-400">
                       {formatDate(resume.createdAt)}
                     </span>
-                    <span className="text-gray-400">•</span>
+                    <span className="text-gray-400 dark:text-gray-600">•</span>
                     <div className="flex items-center space-x-1">
                       {getStatusIcon(resume.processingStatus || 'completed')}
-                      <span className="text-sm text-gray-500 capitalize">
+                      <span className="text-sm text-gray-500 dark:text-gray-400 capitalize">
                         {resume.processingStatus || 'completed'}
                       </span>
                     </div>
@@ -187,18 +187,18 @@ function PreviousResumes({ onSelectResume, onRefresh }) {
               <div className="flex items-center space-x-2">
                 <button
                   onClick={(e) => handleDelete(e, resume.id)}
-                  className="opacity-0 group-hover:opacity-100 p-2 text-gray-400 hover:text-red-600 transition-all"
+                  className="opacity-0 group-hover:opacity-100 p-2 text-gray-400 dark:text-gray-500 hover:text-red-600 dark:hover:text-red-400 transition-all"
                   title="Delete resume"
                 >
                   <Trash2 className="h-4 w-4" />
                 </button>
-                <ChevronRight className="h-5 w-5 text-gray-400 group-hover:text-primary-600" />
+                <ChevronRight className="h-5 w-5 text-gray-400 dark:text-gray-500 group-hover:text-primary-600 dark:group-hover:text-primary-400" />
               </div>
             </div>
           </div>
         ))}
       </div>
-      <p className="text-xs text-gray-500 mt-4">
+      <p className="text-xs text-gray-500 dark:text-gray-400 mt-4">
         Click on a resume to use it for analysis with your selected job
       </p>
     </div>

@@ -62,22 +62,22 @@ function ResumeViewer({ data: initialData, resumeId, editable = true }) {
   // Skeleton loader component for sections being loaded
   const SectionSkeleton = () => (
     <div className="animate-pulse">
-      <div className="h-4 bg-gray-200 rounded w-3/4 mb-2"></div>
-      <div className="h-4 bg-gray-200 rounded w-1/2"></div>
+      <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-3/4 mb-2"></div>
+      <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-1/2"></div>
     </div>
   );
 
   if (!data) return null;
   
   return (
-    <div className="bg-white rounded-lg shadow-sm border border-gray-200 relative">
+    <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 relative">
       {/* AI Warning Ribbon - Super thin and compact */}
-      <div className="bg-gradient-to-r from-pink-50 via-rose-50 to-pink-50 border-b border-pink-200 px-4 py-1">
+      <div className="bg-gradient-to-r from-pink-50 via-rose-50 to-pink-50 dark:from-pink-900/20 dark:via-rose-900/20 dark:to-pink-900/20 border-b border-pink-200 dark:border-pink-800 px-4 py-1">
         <div className="flex items-center space-x-2">
-          <Info className="h-3 w-3 text-pink-500 flex-shrink-0" />
-          <p className="text-[10px] sm:text-xs text-pink-800">
+          <Info className="h-3 w-3 text-pink-500 dark:text-pink-400 flex-shrink-0" />
+          <p className="text-[10px] sm:text-xs text-pink-800 dark:text-pink-300">
             <span className="ml-1">Our AI generated the results below so fill in any gaps we may have missed.</span>
-            <span className="hidden sm:inline ml-1 text-pink-600"> Keep in mind, if our system struggled with your resume then HR systems might too.</span>
+            <span className="hidden sm:inline ml-1 text-pink-600 dark:text-pink-400"> Keep in mind, if our system struggled with your resume then HR systems might too.</span>
           </p>
         </div>
       </div>
@@ -88,8 +88,8 @@ function ResumeViewer({ data: initialData, resumeId, editable = true }) {
         <div className="absolute top-4 right-4 flex items-center gap-2">
           {saveStatus === 'saving' && (
             <>
-              <Save className="h-4 w-4 text-gray-500 animate-pulse" />
-              <span className="text-sm text-gray-500">Saving...</span>
+              <Save className="h-4 w-4 text-gray-500 dark:text-gray-400 animate-pulse" />
+              <span className="text-sm text-gray-500 dark:text-gray-400">Saving...</span>
             </>
           )}
           {saveStatus === 'saved' && (
@@ -104,7 +104,7 @@ function ResumeViewer({ data: initialData, resumeId, editable = true }) {
         </div>
       )}
       
-      <h2 className="text-2xl font-bold text-gray-900 mb-6">Resume Preview</h2>
+      <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-6">Resume Preview</h2>
       
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
         {/* Left Column */}
@@ -113,8 +113,8 @@ function ResumeViewer({ data: initialData, resumeId, editable = true }) {
           {!data.personal_information ? (
             <div className="mb-6">
               <div className="flex items-center mb-3">
-                <User className="h-5 w-5 text-gray-600 mr-2" />
-                <h3 className="text-lg font-semibold text-gray-900">Personal Information</h3>
+                <User className="h-5 w-5 text-gray-600 dark:text-gray-400 mr-2" />
+                <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Personal Information</h3>
               </div>
               <div className="ml-7">
                 <SectionSkeleton />
@@ -123,12 +123,12 @@ function ResumeViewer({ data: initialData, resumeId, editable = true }) {
           ) : (
             <div className="mb-6">
               <div className="flex items-center mb-3">
-                <User className="h-5 w-5 text-gray-600 mr-2" />
-                <h3 className="text-lg font-semibold text-gray-900">Personal Information</h3>
+                <User className="h-5 w-5 text-gray-600 dark:text-gray-400 mr-2" />
+                <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Personal Information</h3>
               </div>
               
               <div className="ml-7 space-y-2">
-                <p className="text-sm text-gray-700">
+                <p className="text-sm text-gray-700 dark:text-gray-300">
                   <span className="font-medium">Name:</span>{' '}
                   <EditableText
                     value={data.personal_information.name}
@@ -138,7 +138,7 @@ function ResumeViewer({ data: initialData, resumeId, editable = true }) {
                   />
                 </p>
                 
-                <p className="text-sm text-gray-700 flex items-center">
+                <p className="text-sm text-gray-700 dark:text-gray-300 flex items-center">
                   <Mail className="h-3 w-3 mr-1" />
                   <EditableText
                     value={data.personal_information.email}
@@ -148,7 +148,7 @@ function ResumeViewer({ data: initialData, resumeId, editable = true }) {
                   />
                 </p>
                 
-                <p className="text-sm text-gray-700 flex items-center">
+                <p className="text-sm text-gray-700 dark:text-gray-300 flex items-center">
                   <Phone className="h-3 w-3 mr-1" />
                   <EditableText
                     value={data.personal_information.phone}
@@ -158,7 +158,7 @@ function ResumeViewer({ data: initialData, resumeId, editable = true }) {
                   />
                 </p>
                 
-                <p className="text-sm text-gray-700 flex items-center">
+                <p className="text-sm text-gray-700 dark:text-gray-300 flex items-center">
                   <MapPin className="h-3 w-3 mr-1" />
                   <EditableText
                     value={data.personal_information.location}
@@ -175,15 +175,15 @@ function ResumeViewer({ data: initialData, resumeId, editable = true }) {
           {data.summary !== undefined && (
             <div className="mb-6">
               <div className="flex items-center mb-3">
-                <ScrollText className="h-5 w-5 text-gray-600 mr-2" />
-                <h3 className="text-lg font-semibold text-gray-900">Professional Summary</h3>
+                <ScrollText className="h-5 w-5 text-gray-600 dark:text-gray-400 mr-2" />
+                <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Professional Summary</h3>
               </div>
               <div className="ml-7">
                 <EditableText
                   value={data.summary}
                   onChange={(value) => updateData('summary', value)}
                   placeholder="Enter professional summary"
-                  className="text-sm text-gray-700 leading-relaxed block"
+                  className="text-sm text-gray-700 dark:text-gray-300 leading-relaxed block"
                   multiline={true}
                   disabled={!editable}
                 />
@@ -195,13 +195,13 @@ function ResumeViewer({ data: initialData, resumeId, editable = true }) {
           {data.skills && (
             <div className="mb-6">
               <div className="flex items-center mb-3">
-                <Code className="h-5 w-5 text-gray-600 mr-2" />
-                <h3 className="text-lg font-semibold text-gray-900">Skills</h3>
+                <Code className="h-5 w-5 text-gray-600 dark:text-gray-400 mr-2" />
+                <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Skills</h3>
               </div>
               
               <div className="ml-7 space-y-3">
                 <div>
-                  <p className="text-xs font-medium text-gray-500 mb-1">Core Competencies</p>
+                  <p className="text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Core Competencies</p>
                   <EditableList
                     items={data.skills.core_competencies}
                     onChange={(items) => updateData('skills.core_competencies', items)}
@@ -212,7 +212,7 @@ function ResumeViewer({ data: initialData, resumeId, editable = true }) {
                 </div>
                 
                 <div>
-                  <p className="text-xs font-medium text-gray-500 mb-1">Technical Skills</p>
+                  <p className="text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Technical Skills</p>
                   <EditableList
                     items={data.skills.technical_skills}
                     onChange={(items) => updateData('skills.technical_skills', items)}
@@ -223,7 +223,7 @@ function ResumeViewer({ data: initialData, resumeId, editable = true }) {
                 </div>
                 
                 <div>
-                  <p className="text-xs font-medium text-gray-500 mb-1">Soft Skills</p>
+                  <p className="text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Soft Skills</p>
                   <EditableList
                     items={data.skills.soft_skills}
                     onChange={(items) => updateData('skills.soft_skills', items)}
@@ -234,7 +234,7 @@ function ResumeViewer({ data: initialData, resumeId, editable = true }) {
                 </div>
                 
                 <div>
-                  <p className="text-xs font-medium text-gray-500 mb-1">Tools & Equipment</p>
+                  <p className="text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Tools & Equipment</p>
                   <EditableList
                     items={data.skills.tools_equipment}
                     onChange={(items) => updateData('skills.tools_equipment', items)}
@@ -245,7 +245,7 @@ function ResumeViewer({ data: initialData, resumeId, editable = true }) {
                 </div>
                 
                 <div>
-                  <p className="text-xs font-medium text-gray-500 mb-1">Certifications</p>
+                  <p className="text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Certifications</p>
                   <EditableList
                     items={data.skills.certifications}
                     onChange={(items) => updateData('skills.certifications', items)}
@@ -258,7 +258,7 @@ function ResumeViewer({ data: initialData, resumeId, editable = true }) {
                 {data.skills.languages && (
                   <>
                     <div>
-                      <p className="text-xs font-medium text-gray-500 mb-1">Languages</p>
+                      <p className="text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Languages</p>
                       <EditableList
                         items={data.skills.languages.spoken}
                         onChange={(items) => updateData('skills.languages.spoken', items)}
@@ -269,7 +269,7 @@ function ResumeViewer({ data: initialData, resumeId, editable = true }) {
                     </div>
                     
                     <div>
-                      <p className="text-xs font-medium text-gray-500 mb-1">Programming Languages</p>
+                      <p className="text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Programming Languages</p>
                       <EditableList
                         items={data.skills.languages.programming}
                         onChange={(items) => updateData('skills.languages.programming', items)}
@@ -291,16 +291,16 @@ function ResumeViewer({ data: initialData, resumeId, editable = true }) {
           {data.experience && data.experience.length > 0 && (
             <div className="mb-6">
               <div className="flex items-center mb-3">
-                <Briefcase className="h-5 w-5 text-gray-600 mr-2" />
-                <h3 className="text-lg font-semibold text-gray-900">
+                <Briefcase className="h-5 w-5 text-gray-600 dark:text-gray-400 mr-2" />
+                <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
                   Experience ({data.experience.length})
                 </h3>
               </div>
               
               <div className="ml-7 space-y-4">
                 {data.experience.map((exp, idx) => (
-                  <div key={idx} className="border-l-2 border-gray-200 pl-4">
-                    <h4 className="font-medium text-gray-900">
+                  <div key={idx} className="border-l-2 border-gray-200 dark:border-gray-700 pl-4">
+                    <h4 className="font-medium text-gray-900 dark:text-white">
                       <EditableText
                         value={exp.title || exp.position}
                         onChange={(value) => {
@@ -312,7 +312,7 @@ function ResumeViewer({ data: initialData, resumeId, editable = true }) {
                         disabled={!editable}
                       />
                     </h4>
-                    <p className="text-sm text-gray-600">
+                    <p className="text-sm text-gray-600 dark:text-gray-300">
                       <EditableText
                         value={exp.company}
                         onChange={(value) => {
@@ -324,7 +324,7 @@ function ResumeViewer({ data: initialData, resumeId, editable = true }) {
                         disabled={!editable}
                       />
                     </p>
-                    <p className="text-xs text-gray-500 mb-2">
+                    <p className="text-xs text-gray-500 dark:text-gray-400 mb-2">
                       <EditableText
                         value={exp.dates}
                         onChange={(value) => {
@@ -338,7 +338,7 @@ function ResumeViewer({ data: initialData, resumeId, editable = true }) {
                     </p>
                     {exp.responsibilities && (
                       <div className="space-y-1">
-                        <p className="text-xs text-gray-500">Responsibilities:</p>
+                        <p className="text-xs text-gray-500 dark:text-gray-400">Responsibilities:</p>
                         <EditableList
                           items={exp.responsibilities}
                           onChange={(items) => {
@@ -347,7 +347,7 @@ function ResumeViewer({ data: initialData, resumeId, editable = true }) {
                             updateData('experience', newExp);
                           }}
                           placeholder="responsibility"
-                          badgeClass="text-xs text-gray-700 bg-gray-100 px-2 py-1 rounded"
+                          badgeClass="text-xs text-gray-700 dark:text-gray-300 bg-gray-100 dark:bg-gray-700 px-2 py-1 rounded"
                           disabled={!editable}
                         />
                       </div>
@@ -362,14 +362,14 @@ function ResumeViewer({ data: initialData, resumeId, editable = true }) {
           {data.education && data.education.length > 0 && (
             <div className="mb-6">
               <div className="flex items-center mb-3">
-                <GraduationCap className="h-5 w-5 text-gray-600 mr-2" />
-                <h3 className="text-lg font-semibold text-gray-900">Education</h3>
+                <GraduationCap className="h-5 w-5 text-gray-600 dark:text-gray-400 mr-2" />
+                <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Education</h3>
               </div>
               
               <div className="ml-7 space-y-3">
                 {data.education.map((edu, idx) => (
                   <div key={idx}>
-                    <h4 className="font-medium text-gray-900 text-sm">
+                    <h4 className="font-medium text-gray-900 dark:text-white text-sm">
                       <EditableText
                         value={edu.degree}
                         onChange={(value) => {
@@ -381,7 +381,7 @@ function ResumeViewer({ data: initialData, resumeId, editable = true }) {
                         disabled={!editable}
                       />
                     </h4>
-                    <p className="text-sm text-gray-600">
+                    <p className="text-sm text-gray-600 dark:text-gray-300">
                       <EditableText
                         value={edu.institution}
                         onChange={(value) => {
@@ -393,7 +393,7 @@ function ResumeViewer({ data: initialData, resumeId, editable = true }) {
                         disabled={!editable}
                       />
                     </p>
-                    <p className="text-xs text-gray-500">
+                    <p className="text-xs text-gray-500 dark:text-gray-400">
                       <EditableText
                         value={edu.dates}
                         onChange={(value) => {
@@ -406,7 +406,7 @@ function ResumeViewer({ data: initialData, resumeId, editable = true }) {
                       />
                     </p>
                     {edu.gpa && (
-                      <p className="text-xs text-gray-600 mt-1">
+                      <p className="text-xs text-gray-600 dark:text-gray-400 mt-1">
                         GPA:{' '}
                         <EditableText
                           value={edu.gpa}
