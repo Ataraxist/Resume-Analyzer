@@ -1,94 +1,92 @@
 const OpenAI = require('openai');
 
+/**
+ * Simplified Dimension Comparator
+ * Sends full JSON objects to AI for analysis instead of preprocessing to text
+ */
+
 // Helper to strip markdown code blocks from OpenAI responses
 function stripMarkdownJson(text) {
-    // Remove ```json prefix and ``` suffix if present
     const cleaned = text.replace(/^```(?:json)?\s*\n?/, '').replace(/\n?```\s*$/, '');
     return cleaned.trim();
 }
 
 // Helper function to add jitter to retry delays
 function addJitter(delay) {
-    // Add random jitter between -25% to +25% of delay
     const jitter = delay * (0.5 * Math.random() - 0.25);
-    return Math.max(1000, delay + jitter); // Minimum 1 second
+    return Math.max(1000, delay + jitter);
 }
 
-// Helper function to validate and clean AI responses
-// Ensures all array fields contain only strings, not objects
-function validateAndCleanResponse(result) {
-    // Ensure all array fields contain only strings
-    const arrayFields = ['matches', 'gaps'];
-    
-    arrayFields.forEach(field => {
-        if (result[field] && Array.isArray(result[field])) {
-            result[field] = result[field].map(item => {
-                if (typeof item === 'string') return item;
-                if (typeof item === 'object') {
-                    // Extract text from various possible object structures
-                    // This handles the {task, evidence} case and other variations
-                    return item.task || item.evidence || item.item || 
-                           item.name || item.title || item.description || 
-                           JSON.stringify(item);
-                }
-                return String(item);
-            });
-        }
-    });
-    
-    return result;
-}
+// Retry wrapper with exponential backoff for transient errors + rate limits
+async function retryWithBackoff(fn, opts = {}) {
+    const {
+        maxRetries = 5,
+        baseMs = 1000,
+        maxDelayMs = 60_000
+    } = opts;
 
-// Retry wrapper with exponential backoff for rate limits
-async function retryWithBackoff(fn, fnName, maxRetries = 3) {
+    const shouldRetry = (error) => {
+        const status = error?.status ?? error?.response?.status;
+        const code = (error?.code || '').toString().toUpperCase();
+        const msg = (error?.message || '').toLowerCase();
+
+        // HTTP statuses worth retrying
+        const retryStatuses = new Set([408, 429, 500, 502, 503, 504, 529]);
+        if (retryStatuses.has(Number(status))) return true;
+
+        // OpenAI-style rate limit code or generic hints
+        if (code === 'RATE_LIMIT_EXCEEDED' || msg.includes('rate limit')) return true;
+
+        // Common transient network errors
+        const transientCodes = new Set(['ETIMEDOUT', 'ECONNRESET', 'EAI_AGAIN']);
+        if (transientCodes.has(code)) return true;
+        if (msg.includes('socket hang up') || msg.includes('timeout')) return true;
+
+        return false;
+    };
+
+    const parseRetryAfter = (error) => {
+        const h =
+            error?.response?.headers?.['retry-after'] ??
+            error?.response?.headers?.['Retry-After'];
+        if (!h) return null;
+        // try seconds
+        const secs = parseInt(h, 10);
+        if (!Number.isNaN(secs)) return secs * 1000;
+        // try HTTP-date
+        const dateMs = Date.parse(h);
+        if (!Number.isNaN(dateMs)) return Math.max(0, dateMs - Date.now());
+        return null;
+    };
+
     let lastError;
-    
     for (let attempt = 0; attempt < maxRetries; attempt++) {
         try {
             return await fn();
         } catch (error) {
             lastError = error;
-            
-            // Check if it's a rate limit error
-            const isRateLimit = 
-                error.status === 429 || 
-                error.code === 'rate_limit_exceeded' ||
-                (error.message && error.message.includes('Rate limit'));
-            
-            // Only retry on rate limit errors
-            if (!isRateLimit) {
-                throw error;
-            }
-            
-            // If we've exhausted retries, throw the error
-            if (attempt === maxRetries - 1) {
-                throw new Error(`Rate limit exceeded after ${maxRetries} attempts. Please try again later.`);
-            }
-            
-            // Calculate exponential backoff with jitter
-            const baseDelay = Math.pow(2, attempt + 1) * 1000; // 2s, 4s, 8s
-            const delay = addJitter(baseDelay);
-            
-            
-            // Wait before retrying
-            await new Promise(resolve => setTimeout(resolve, delay));
+            if (!shouldRetry(error) || attempt === maxRetries - 1) throw error;
+
+            const retryAfterMs = parseRetryAfter(error);
+            const expDelay = baseMs * Math.pow(2, attempt); // 1s, 2s, 4s...
+            let delay = retryAfterMs != null ? Math.max(expDelay, retryAfterMs) : expDelay;
+            delay = Math.min(maxDelayMs, addJitter(delay));
+
+            await new Promise((r) => setTimeout(r, Math.max(1000, delay)));
         }
     }
-    
-    // Should never reach here, but just in case
     throw lastError;
 }
+
 
 class DimensionComparator {
     constructor() {
         this.openai = null;
         this.isConfigured = false;
         this.analysisModel = null;
-        // Don't initialize in constructor to avoid deployment warnings
     }
 
     initialize() {
-        // Lazy initialization - only run when actually needed
         if (this.isConfigured) return;
         
         const apiKey = process.env.OPENAI_API_KEY;
@@ -96,8 +94,6 @@ class DimensionComparator {
         if (apiKey) {
             this.openai = new OpenAI({ apiKey });
             this.isConfigured = true;
-            
-            // Use configurable model for analysis, default to gpt-5 for best quality
             this.analysisModel = process.env.OPENAI_ANALYSIS_MODEL || 'gpt-5';
         }
     }
@@ -108,605 +104,258 @@ class DimensionComparator {
         }
     }
 
-    async compareTasksFit(resumeExperience, onetTasks) {
+    /**
+     * Generic comparison method that sends full JSON to AI
+     * @param {Object} fullResumeData - Complete parsed resume object
+     * @param {Array} onetData - O*NET requirements for this dimension
+     * @param {Object} config - Configuration for this comparison
+     * @returns {Object} Standardized comparison results
+     */
+    async compareGeneric(fullResumeData, onetData, config) {
         this.ensureInitialized();
         if (!this.isConfigured) {
             throw new Error('OpenAI API key not configured');
         }
 
-        const experienceText = resumeExperience.map(exp => 
-            `${exp.position} at ${exp.company}: ${exp.responsibilities.join(', ')} ${exp.achievements.join(', ')}`
-        ).join('\n');
+        const {
+            dimension,
+            systemRole,
+            outputExample
+        } = config;
 
-        const tasksText = onetTasks.map(task => task.title || task.task_text || task.description).join('\n');
+        const prompt = 
+`Analyze occupational readiness by comparing the provided resume data against O*NET ${dimension} Occupation-Specific Information. 
+Use the entirety of the resume data to evaluate if any given O*NET requirement can reasonably be inferred as satisfied.
+It is entirely possible that the resume data does not explicitly reference an O*NET requirement but the contextual information provided in the resume can be used to infer the requirement is met. 
 
-        const prompt = `Compare the following resume experience with O*NET job tasks and provide a detailed analysis.
+COMPLETE RESUME DATA:
+${JSON.stringify(fullResumeData)}
 
-RESUME EXPERIENCE:
-${experienceText}
-
-O*NET JOB TASKS:
-${tasksText}
-
-Analyze and return a JSON response with EXACTLY these fields:
-{
-  "score": 75,
-  "matches": ["Managing team projects", "Code review processes", "Technical documentation"],
-  "gaps": ["Budget planning", "Strategic planning", "Vendor management"],
-  "confidence": "high"
-}
-
-CRITICAL REQUIREMENTS:
-- score: number between 0-100
-- matches: array of brief strings describing matching tasks
-- gaps: array of brief strings describing missing tasks
-- confidence: exactly one of "low", "medium", or "high"
-- Arrays must contain ONLY strings, never objects or nested data
-
-Return ONLY valid JSON without any markdown formatting.`;
-
-        try {
-            // Wrap OpenAI call in retry logic
-            const response = await retryWithBackoff(async () => {
-                return await this.openai.chat.completions.create({
-                    model: this.analysisModel,
-                    messages: [
-                        { role: 'system', content: 'You are an expert career counselor analyzing resume fit. Return ONLY the exact JSON fields requested. Arrays must contain ONLY simple strings - never objects, just brief task descriptions.' },
-                        { role: 'user', content: prompt }
-                    ],
-                    response_format: { type: 'json_object' }
-                });
-            }, 'compareTasksFit');
-
-            const content = stripMarkdownJson(response.choices[0].message.content);
-            let result = JSON.parse(content);
-            result = validateAndCleanResponse(result);
-            return {
-                dimension: 'tasks',
-                score: result.score || 0,
-                matches: result.matches || [],
-                gaps: result.gaps || [],
-                confidence: result.confidence || 'medium',
-                importance: 'high'
-            };
-        } catch (error) {
-            throw error;
-        }
-    }
-
-    async compareSkillsFit(resumeSkills, onetSkills, onetTechSkills) {
-        this.ensureInitialized();
-        if (!this.isConfigured) {
-            throw new Error('OpenAI API key not configured');
-        }
-
-        // Extract all skills from the universal schema
-        const allResumeSkills = [
-            ...(resumeSkills.core_competencies || []),
-            ...(resumeSkills.technical_skills || []),
-            ...(resumeSkills.soft_skills || []),
-            ...(resumeSkills.tools_equipment || []),
-            ...(resumeSkills.certifications || []),
-            ...(resumeSkills.languages?.spoken || []),
-            ...(resumeSkills.languages?.programming || [])
-        ];
-        
-        const allResumeSkillsText = allResumeSkills.join(', ');
-
-        const requiredSkills = onetSkills.map(s => s.skill_name || s.name).join(', ');
-        const requiredTech = onetTechSkills ? onetTechSkills.map(t => t.skill_name || t.name).join(', ') : '';
-
-        const prompt = `Compare resume skills with O*NET required skills.
-
-RESUME SKILLS:
-${allResumeSkillsText}
-
-O*NET REQUIRED SKILLS:
-${requiredSkills}
-
-O*NET TECHNOLOGY SKILLS:
-${requiredTech}
-
-Analyze and return a JSON response with EXACTLY these fields:
-{
-  "score": 80,
-  "matches": ["Python", "JavaScript", "SQL", "Git"],
-  "gaps": ["React", "Docker", "AWS", "Kubernetes"],
-  "confidence": "medium"
-}
-
-CRITICAL REQUIREMENTS:
-- score: number between 0-100
-- matches: array of brief skill names
-- gaps: array of brief skill names  
-- confidence: exactly one of "low", "medium", or "high"
-- Arrays must contain ONLY strings, never objects or nested data
-
-Return ONLY valid JSON without any markdown formatting.`;
-
-        try {
-            // Wrap OpenAI call in retry logic
-            const response = await retryWithBackoff(async () => {
-                return await this.openai.chat.completions.create({
-                    model: this.analysisModel,
-                    messages: [
-                        { role: 'system', content: 'You are an expert skills analyst. Return ONLY the exact JSON fields requested. Arrays must contain ONLY simple strings - never objects, just brief skill names.' },
-                        { role: 'user', content: prompt }
-                    ],
-                    response_format: { type: 'json_object' }
-                });
-            }, 'compareSkillsFit');
-
-            const content = stripMarkdownJson(response.choices[0].message.content);
-            let result = JSON.parse(content);
-            result = validateAndCleanResponse(result);
-            return {
-                dimension: 'skills',
-                score: result.score || 0,
-                matches: result.matches || [],
-                gaps: result.gaps || [],
-                confidence: result.confidence || 'medium',
-                importance: 'high'
-            };
-        } catch (error) {
-            throw error;
-        }
-    }
-
-    async compareEducationFit(resumeEducation, onetEducation, _onetJobZone) {
-        this.ensureInitialized();
-        if (!this.isConfigured) {
-            throw new Error('OpenAI API key not configured');
-        }
-
-        // Extract candidate's education levels
-        const candidateEducation = resumeEducation.map(edu => 
-            `${edu.degree} in ${edu.field_of_study}`
-        );
-        const candidateEducationText = candidateEducation.join(', ');
-
-        // Format O*NET education levels with percentages
-        const onetEducationLevels = onetEducation ? onetEducation.map(e => ({
-            level: e.category || e.title,
-            percentage: e.percentage || 0
-        })) : [];
-        
-        const onetEducationText = onetEducationLevels
-            .map(e => `${e.level} (${e.percentage}% of workers)`)
-            .join('\n');
-
-        const prompt = `Compare candidate's education levels with O*NET occupation education distribution.
-
-CANDIDATE EDUCATION:
-${candidateEducationText || 'No formal education listed'}
-
-O*NET EDUCATION DISTRIBUTION (percentage of workers with each level):
-${onetEducationText || 'No education data available'}
-
-Match the candidate's education against ALL the education levels shown in the O*NET data.
-For each O*NET education level, determine if the candidate has it or not.
+O*NET ${dimension.toUpperCase()} REQUIREMENTS:
+${JSON.stringify(onetData)}
 
 Return a JSON response with EXACTLY these fields:
-{
-  "score": 85,
-  "matches": ["Bachelor's in Computer Science", "Relevant degree field"],
-  "gaps": [],
-  "meetsRequirements": true,
-  "confidence": "high"
-}
+${JSON.stringify(outputExample)}
 
 CRITICAL REQUIREMENTS:
-- score: number between 0-100
-- matches: array of brief education descriptions
-- gaps: array of missing education requirements (empty array if none)
-- meetsRequirements: boolean (true/false)
-- confidence: exactly one of "low", "medium", or "high"
-- Arrays must contain ONLY strings, never objects or nested data
+- score: number between 0-100 representing the career readiness of the applicant
+- matches: array of O*NET requirements that are met
+- gaps: array of O*NET requirements that are not met
+- confidence: exactly one of "low", "medium", or "high" representing your confidence in your assessment
 
-Return ONLY valid JSON without any markdown formatting.`;
+All values from the O*NET requirements should exist in either your matches or gaps arrays. Return ONLY valid JSON without any markdown formatting.`;
 
-        try {
-            // Wrap OpenAI call in retry logic
-            const response = await retryWithBackoff(async () => {
-                return await this.openai.chat.completions.create({
-                    model: this.analysisModel,
-                    messages: [
-                        { role: 'system', content: 'You are an education analyst. Return ONLY the exact JSON fields requested. Arrays must contain ONLY simple strings - never objects, just brief descriptions.' },
-                        { role: 'user', content: prompt }
-                    ],
-                    response_format: { type: 'json_object' }
-                });
-            }, 'compareEducationFit');
-
-            const content = stripMarkdownJson(response.choices[0].message.content);
-            let result = JSON.parse(content);
-            result = validateAndCleanResponse(result);
-            return {
-                dimension: 'education',
-                score: result.score || 0,
-                matches: result.matches || [],
-                gaps: result.gaps || [],
-                meetsRequirements: result.meetsRequirements || false,
-                onetDistribution: onetEducationLevels, // Include raw data for UI display
-                confidence: result.confidence || 'medium',
-                importance: 'high'
-            };
-        } catch (error) {
-            throw error;
-        }
-    }
-
-    async compareWorkActivitiesFit(resumeExperience, onetWorkActivities) {
-        this.ensureInitialized();
-        if (!this.isConfigured) {
-            throw new Error('OpenAI API key not configured');
-        }
-
-        const experienceText = resumeExperience.map(exp => 
-            `${exp.responsibilities.join(', ')} ${exp.achievements.join(', ')}`
-        ).join(' ');
-
-        const activitiesText = onetWorkActivities
-            .filter(a => (a.importance || 0) > 50)
-            .map(a => `${a.name}: ${a.description}`)
-            .join('\n');
-
-        const prompt = `Compare resume work experience with O*NET work activities.
-
-RESUME EXPERIENCE:
-${experienceText}
-
-O*NET WORK ACTIVITIES (Important ones):
-${activitiesText}
-
-Analyze and return a JSON response with EXACTLY these fields:
-{
-  "score": 70,
-  "matches": ["Analyzing data", "Writing reports", "Team collaboration"],
-  "gaps": ["Managing budgets", "Training staff", "Vendor negotiations"],
-  "confidence": "medium"
-}
-
-CRITICAL REQUIREMENTS:
-- score: number between 0-100
-- matches: array of brief activity descriptions
-- gaps: array of missing activities
-- confidence: exactly one of "low", "medium", or "high"
-- Arrays must contain ONLY strings, never objects or nested data
-
-Return ONLY valid JSON without any markdown formatting.`;
-
-        try {
-            // Wrap OpenAI call in retry logic
-            const response = await retryWithBackoff(async () => {
-                return await this.openai.chat.completions.create({
-                    model: this.analysisModel,
-                    messages: [
-                        { role: 'system', content: 'You are a work activity analyst. Return ONLY the exact JSON fields requested. Arrays must contain ONLY simple strings - never objects, just brief activity descriptions.' },
-                        { role: 'user', content: prompt }
-                    ],
-                    response_format: { type: 'json_object' }
-                });
-            }, 'compareWorkActivitiesFit');
-
-            const content = stripMarkdownJson(response.choices[0].message.content);
-            let result = JSON.parse(content);
-            result = validateAndCleanResponse(result);
-            return {
-                dimension: 'workActivities',
-                score: result.score || 0,
-                matches: result.matches || [],
-                gaps: result.gaps || [],
-                confidence: result.confidence || 'medium',
-                importance: 'medium'
-            };
-        } catch (error) {
-            throw error;
-        }
-    }
-
-    async compareKnowledgeFit(resumeData, onetKnowledge) {
-        this.ensureInitialized();
-        if (!this.isConfigured) {
-            throw new Error('OpenAI API key not configured');
-        }
-
-        const resumeKnowledgeAreas = [
-            ...(resumeData.education || []).map(e => e.field_of_study),
-            ...(resumeData.skills?.technical_skills || []),
-            ...(resumeData.skills?.core_competencies || []),
-            resumeData.summary
-        ].filter(Boolean).join(', ');
-
-        const requiredKnowledge = onetKnowledge
-            .filter(k => (k.importance_score || 0) > 50)
-            .map(k => `${k.knowledge_name || k.knowledge_area || k.name}: ${k.knowledge_description || k.description || ''}`)
-            .join('\n');
-
-        const prompt = `Compare candidate's knowledge areas with O*NET requirements.
-
-CANDIDATE KNOWLEDGE AREAS:
-${resumeKnowledgeAreas}
-
-O*NET REQUIRED KNOWLEDGE:
-${requiredKnowledge}
-
-Analyze and return a JSON response with EXACTLY these fields:
-{
-  "score": 65,
-  "matches": ["Software Engineering", "Computer Science", "Mathematics"],
-  "gaps": ["Cloud Architecture", "Machine Learning", "DevOps"],
-  "confidence": "medium"
-}
-
-CRITICAL REQUIREMENTS:
-- score: number between 0-100
-- matches: array of brief knowledge area names
-- gaps: array of missing knowledge areas
-- confidence: exactly one of "low", "medium", or "high"
-- Arrays must contain ONLY strings, never objects or nested data
-
-Return ONLY valid JSON without any markdown formatting.`;
-
-        try {
-            // Wrap OpenAI call in retry logic
-            const response = await retryWithBackoff(async () => {
-                return await this.openai.chat.completions.create({
-                    model: this.analysisModel,
-                    messages: [
-                        { role: 'system', content: 'You are a knowledge requirements analyst. Return ONLY the exact JSON fields requested. Arrays must contain ONLY simple strings - never objects, just brief knowledge area names.' },
-                        { role: 'user', content: prompt }
-                    ],
-                    response_format: { type: 'json_object' }
-                });
-            }, 'compareKnowledgeFit');
-
-            const content = stripMarkdownJson(response.choices[0].message.content);
-            let result = JSON.parse(content);
-            result = validateAndCleanResponse(result);
-            return {
-                dimension: 'knowledge',
-                score: result.score || 0,
-                matches: result.matches || [],
-                gaps: result.gaps || [],
-                confidence: result.confidence || 'medium',
-                importance: 'low'
-            };
-        } catch (error) {
-            throw error;
-        }
-    }
-
-    async compareTechnologySkillsFit(resumeSkills, onetTechSkills) {
-        this.ensureInitialized();
-        if (!this.isConfigured) {
-            throw new Error('OpenAI API key not configured');
-        }
-
-        // Extract technical skills from resume
-        const candidateTechSkills = [
-            ...(resumeSkills?.technical_skills || []),
-            ...(resumeSkills?.languages?.programming || []),
-            ...(resumeSkills?.tools_equipment || [])
-        ].join(', ');
-        
-        // O*NET technology skills have 'title' field
-        const requiredTechSkills = onetTechSkills.map(s => s.title || s.skill_name || s.name).join(', ');
-
-        const prompt = `Compare candidate's technology skills with O*NET requirements.
-
-CANDIDATE TECHNOLOGY SKILLS:
-${candidateTechSkills || 'No specific technology skills listed'}
-
-O*NET REQUIRED TECHNOLOGY SKILLS:
-${requiredTechSkills}
-
-Analyze and return a JSON response with EXACTLY these fields:
-{
-  "score": 85,
-  "matches": ["Git", "Docker", "VS Code", "Linux"],
-  "gaps": ["Kubernetes", "Terraform", "Jenkins"],
-  "confidence": "high"
-}
-
-CRITICAL REQUIREMENTS:
-- score: number between 0-100
-- matches: array of brief technology/tool names
-- gaps: array of missing technologies
-- confidence: exactly one of "low", "medium", or "high"
-- Arrays must contain ONLY strings, never objects or nested data
-
-Return ONLY valid JSON without any markdown formatting.`;
-
-        try {
-            // Wrap OpenAI call in retry logic
-            const response = await retryWithBackoff(async () => {
-                return await this.openai.chat.completions.create({
-                    model: this.analysisModel,
-                    messages: [
-                        { role: 'system', content: 'You are a technology skills analyst. Return ONLY the exact JSON fields requested. Arrays must contain ONLY simple strings - never objects, just brief technology names.' },
-                        { role: 'user', content: prompt }
-                    ],
-                    response_format: { type: 'json_object' }
-                });
-            }, 'compareTechnologySkillsFit');
-
-            const content = stripMarkdownJson(response.choices[0].message.content);
-            let result = JSON.parse(content);
-            result = validateAndCleanResponse(result);
-            return {
-                dimension: 'technologySkills',
-                score: result.score || 0,
-                matches: result.matches || [],
-                gaps: result.gaps || [],
-                confidence: result.confidence || 'medium',
-                importance: 'high'
-            };
-        } catch (error) {
-            throw error;
-        }
-    }
-
-    async compareToolsFit(resumeTools, onetTools, resumeExperience = []) {
-        this.ensureInitialized();
-        if (!this.isConfigured) {
-            throw new Error('OpenAI API key not configured');
-        }
-
-        // Extract tools from multiple fields in the resume
-        const candidateToolsList = [
-            ...(resumeTools?.tools_equipment || []),
-            ...(resumeTools?.technical_skills || []),
-            ...(resumeTools?.languages?.programming || [])
-        ];
-        const candidateTools = candidateToolsList.join(', ');
-        
-        // Also extract experience text to find tools mentioned in context
-        const experienceText = resumeExperience.map(exp => 
-            `${exp.responsibilities.join(', ')} ${exp.achievements.join(', ')}`
-        ).join(' ');
-        
-        // Use the correct field name 'title' from O*NET data
-        const requiredTools = onetTools.map(t => t.title || t.tool_name || t.name).join(', ');
-
-        const prompt = `Compare candidate's tools/software experience with O*NET requirements.
-
-CANDIDATE TOOLS (from skills section):
-${candidateTools || 'No specific tools listed'}
-
-CANDIDATE EXPERIENCE (may contain tool mentions):
-${experienceText}
-
-O*NET REQUIRED TOOLS:
-${requiredTools}
-
-Look for tools mentioned both explicitly in skills and implicitly in experience descriptions.
-Analyze and return a JSON response with EXACTLY these fields:
-{
-  "score": 90,
-  "matches": ["Microsoft Office", "Slack", "Jira", "Zoom"],
-  "gaps": ["Salesforce", "Tableau", "SAP"],
-  "confidence": "high"
-}
-
-CRITICAL REQUIREMENTS:
-- score: number between 0-100
-- matches: array of brief tool/software names
-- gaps: array of missing tools
-- confidence: exactly one of "low", "medium", or "high"
-- Arrays must contain ONLY strings, never objects or nested data
-
-Return ONLY valid JSON without any markdown formatting.`;
-
-        try {
-            // Wrap OpenAI call in retry logic
-            const response = await retryWithBackoff(async () => {
-                return await this.openai.chat.completions.create({
-                    model: this.analysisModel,
-                    messages: [
-                        { role: 'system', content: 'You are a technical tools analyst. Return ONLY the exact JSON fields requested. Arrays must contain ONLY simple strings - never objects, just brief tool names.' },
-                        { role: 'user', content: prompt }
-                    ],
-                    response_format: { type: 'json_object' }
-                });
-            }, 'compareToolsFit');
-
-            const content = stripMarkdownJson(response.choices[0].message.content);
-            let result = JSON.parse(content);
-            result = validateAndCleanResponse(result);
-            return {
-                dimension: 'tools',
-                score: result.score || 0,
-                matches: result.matches || [],
-                gaps: result.gaps || [],
-                confidence: result.confidence || 'medium',
-                importance: 'medium'
-            };
-        } catch (error) {
-            throw error;
-        }
-    }
-    async compareAbilitiesFit(resumeData, onetAbilities) {
-        this.ensureInitialized();
-        if (!this.isConfigured) {
-            throw new Error('OpenAI API key not configured');
-        }
-
-        // Build a comprehensive picture from resume for abilities inference
-        const resumeContext = {
-            experience: resumeData.experience?.map(exp => 
-                `${exp.position}: ${exp.responsibilities.join(', ')} ${exp.achievements.join(', ')}`
-            ).join(' '),
-            skills: [
-                ...(resumeData.skills?.technical_skills || []),
-                ...(resumeData.skills?.soft_skills || []),
-                ...(resumeData.skills?.core_competencies || [])
-            ].join(', '),
-            education: resumeData.education?.map(edu => 
-                `${edu.degree} in ${edu.field_of_study}`
-            ).join(', ')
+        // --- Structured Outputs schema (flat) + fallback to json_object ---
+        const schema = {
+            name: 'dimension_result',
+            strict: true,
+            schema: {
+                type: 'object',
+                additionalProperties: false,
+                properties: {
+                    score: { type: 'integer', minimum: 0, maximum: 100 },
+                    matches: { type: 'array', items: { type: 'string' } },
+                    gaps: { type: 'array', items: { type: 'string' } },
+                    confidence: { type: 'string', enum: ['low', 'medium', 'high'] }
+                },
+                required: ['score', 'matches', 'gaps', 'confidence']
+            }
         };
 
-        const abilitiesText = onetAbilities
-            .filter(a => (a.importance || 0) > 50)
-            .map(a => `${a.name}: ${a.description}`)
-            .join('\n');
+        const callWithFormat = async (response_format) => {
+            return await this.openai.chat.completions.create({
+                model: this.analysisModel,
+                messages: [
+                    { role: 'system', content: systemRole },
+                    { role: 'user', content: prompt }
+                ],
+                response_format,
+                seed: 12345
+            });
+        };
 
-        const prompt = `Analyze candidate's demonstrated abilities based on their experience, skills, and education against O*NET required abilities.
+        const response = await retryWithBackoff(async () => {
+            try {
+                // Try strict schema first
+                return await callWithFormat({ type: 'json_schema', json_schema: schema });
+            } catch (e) {
+                // Fallback for models/snapshots without json_schema support or formatting errors
+                const msg = (e?.message || '').toLowerCase();
+                const unsupported =
+                    e?.status === 400 ||
+                    msg.includes('response_format') ||
+                    msg.includes('json_schema') ||
+                    msg.includes('unsupported') ||
+                    msg.includes('schema');
+                if (!unsupported) throw e;
+                return await callWithFormat({ type: 'json_object' });
+            }
+        });
 
-CANDIDATE BACKGROUND:
-Experience: ${resumeContext.experience}
-Skills: ${resumeContext.skills}
-Education: ${resumeContext.education}
-
-O*NET REQUIRED ABILITIES (Important ones):
-${abilitiesText}
-
-Analyze what abilities the candidate demonstrates through their background.
-Return a JSON response with EXACTLY these fields:
-{
-  "score": 75,
-  "matches": ["Problem solving", "Critical thinking", "Communication"],
-  "gaps": ["Public speaking", "Negotiation", "Leadership"],
-  "confidence": "medium"
-}
-
-CRITICAL REQUIREMENTS:
-- score: number between 0-100
-- matches: array of brief ability names
-- gaps: array of missing abilities
-- confidence: exactly one of "low", "medium", or "high"
-- Arrays must contain ONLY strings, never objects or nested data
-
-Return ONLY valid JSON without any markdown formatting.`;
-
-        try {
-            // Wrap OpenAI call in retry logic
-            const response = await retryWithBackoff(async () => {
-                return await this.openai.chat.completions.create({
-                    model: this.analysisModel,
-                    messages: [
-                        { role: 'system', content: 'You are an abilities analyst. Return ONLY the exact JSON fields requested. Arrays must contain ONLY simple strings - never objects, just brief ability names.' },
-                        { role: 'user', content: prompt }
-                    ],
-                    response_format: { type: 'json_object' }
+        const content = stripMarkdownJson(response.choices[0].message.content);
+        const result = JSON.parse(content);
+        
+        // Ensure arrays contain only strings
+        ['matches', 'gaps'].forEach(field => {
+            if (result[field] && Array.isArray(result[field])) {
+                result[field] = result[field].map(item => {
+                    if (typeof item === 'string') return item;
+                    if (typeof item === 'object') {
+                        return item.task || item.evidence || item.item || 
+                               item.name || item.title || item.description || 
+                               JSON.stringify(item);
+                    }
+                    return String(item);
                 });
-            }, 'compareAbilitiesFit');
+            }
+        });
 
-            const content = stripMarkdownJson(response.choices[0].message.content);
-            let result = JSON.parse(content);
-            result = validateAndCleanResponse(result);
-            return {
-                dimension: 'abilities',
-                score: result.score || 0,
-                matches: result.matches || [],
-                gaps: result.gaps || [],
-                confidence: result.confidence || 'medium',
-                importance: 'medium'
-            };
-        } catch (error) {
-            throw error;
-        }
+        // #4: Clamp & normalize
+        let score = Number(result.score);
+        if (!Number.isFinite(score)) score = 0;
+        score = Math.max(0, Math.min(100, Math.round(score)));
+
+        const ALLOWED_CONF = new Set(['low', 'medium', 'high']);
+        let confidence = String(result.confidence || 'medium').toLowerCase();
+        if (!ALLOWED_CONF.has(confidence)) confidence = 'medium';
+
+        return {
+            dimension,
+            score,
+            matches: result.matches || [],
+            gaps: result.gaps || [],
+            confidence
+        };
+    }
+
+    async compareTasksFit(fullResumeData, onetTasks) {
+        return this.compareGeneric(fullResumeData, onetTasks, {
+            dimension: 'tasks',
+            systemRole: 'You are an expert career counselor analyzing occupational preparedness regarding work tasks and responsibilities.',
+            outputExample: {
+                score: 95,
+                matches: ["Maintain and follow standard quality, safety, environmental, and infection control policies and procedures.", "Treat patients using tools, such as needles, cups, ear balls, seeds, pellets, or nutritional supplements.", "Adhere to local, state, and federal laws, regulations, and statutes."],
+                gaps: ["Identify correct anatomical and proportional point locations based on patients' anatomy and positions, contraindications, and precautions related to treatments, such as intradermal needles, moxibustion, electricity, guasha, or bleeding.", "Develop individual treatment plans and strategies."],
+                confidence: "high"
+            }
+        });
+    }
+
+    async compareSkillsFit(fullResumeData, onetSkills) {
+        return this.compareGeneric(fullResumeData, onetSkills, {
+            dimension: 'skills',
+            systemRole: 'You are an expert career counselor analyzing occupational preparedness regarding basic and cross-functional skills.',
+            outputExample: {
+                score: 80,
+                matches: ["Active Listening", "Critical Thinking", "Team Service Orientation", "Social Perceptiveness"],
+                gaps: ["Speaking", "Judgment and Decision Making", "Complex Problem Solving", "Monitoring"],
+                confidence: "high"
+            }
+        });
+    }
+
+    async compareEducationFit(fullResumeData, onetEducation) {
+        return this.compareGeneric(fullResumeData, onetEducation, {
+            dimension: 'education',
+            systemRole: 'You are an expert career counselor analyzing occupational preparedness regarding academic and professional qualifications. Educational thresholds are hierarchical and cumulative. If a higher-level threshold is satisfied (e.g., Master’s), treat every lower threshold (e.g., Bachelor’s, Associate, High School) as satisfied. Never mark a lower threshold as a gap once a higher one is met.',
+            outputExample: {
+                score: 85,
+                matches: ["Master’s degree required", "Post-secondary certificate required", "Professional certifications"],
+                gaps: ["Doctoral degree required", "Additional industry certifications"],
+                confidence: "high"
+            }
+        });
+    }
+
+    async compareWorkActivitiesFit(fullResumeData, onetWorkActivities) {
+        // Filter for important activities only
+        const importantActivities = onetWorkActivities.filter(a => (a.importance || 0) > 50);
+
+        return this.compareGeneric(fullResumeData, importantActivities, {
+            dimension: 'workActivities',
+            systemRole: 'You are an expert career counselor analyzing occupational preparedness regarding day-to-day work activities.',
+            outputExample: {
+                score: 90,
+                matches: ["Assisting and Caring for Others", "Documenting/Recording Information", "Getting Information"],
+                gaps: ["Updating and Using Relevant Knowledge", "Establishing and Maintaining Interpersonal Relationships", "Performing for or Working Directly with the Public"],
+                confidence: "high"
+            }
+        });
+    }
+
+    async compareKnowledgeFit(fullResumeData, onetKnowledge) {
+        // Filter for important knowledge areas only
+        const importantKnowledge = onetKnowledge.filter(k => (k.importance_score || 0) > 20);
+
+        return this.compareGeneric(fullResumeData, importantKnowledge, {
+            dimension: 'knowledge',
+            systemRole: 'You are an expert career counselor analyzing occupational preparedness regarding domain expertise.',
+            outputExample: {
+                score: 95,
+                matches: ["Customer and Personal Service", "Medicine and Dentistry", "Psychology"],
+                gaps: ["Biology", "English Language", "Administrative"],
+                confidence: "high"
+            }
+        });
+    }
+
+    async compareTechnologySkillsFit(fullResumeData, onetTechSkills) {
+        return this.compareGeneric(fullResumeData, onetTechSkills, {
+            dimension: 'technologySkills',
+            systemRole: 
+`You are an expert career counselor analyzing occupational preparedness regarding technical proficiencies.
+
+IMPORTANT: Apply realistic judgment when evaluating technology skills:
+- No professional knows every technology listed - focus on having SUFFICIENT coverage of relevant technologies
+- Many technologies are ALTERNATIVES to each other (different brands/versions of similar tools)
+- Consider transferable skills: proficiency in one technology often indicates ability to learn similar ones
+- Score based on breadth and depth across technology CATEGORIES, not total count of individual tools
+- Having strong expertise in one ecosystem/stack is more valuable than superficial knowledge of many
+- Consider technologies by their relevance and importance to the specific occupation when determining the occupation readiness score`,
+            outputExample: {
+                score: 85,
+                matches: ["Electronic mail software", "Medical software", "Office suite software", "Operating system software"],
+                gaps: ["Spreadsheet software", "Word processing software"],
+                confidence: "high"
+            }
+        });
+    }
+
+    async compareToolsFit(fullResumeData, onetTools) {
+        return this.compareGeneric(fullResumeData, onetTools, {
+            dimension: 'tools',
+            systemRole: 
+`You are an expert career counselor analyzing occupational preparedness regarding digital and physical tool proficiency.
+
+IMPORTANT: Apply common sense when evaluating tools:
+- Distinguish between SPECIALIZED tools (specific to this occupation) and GENERIC tools (standard office/computing equipment everyone uses)
+- Do NOT penalize candidates for not explicitly mentioning ubiquitous tools (e.g., computers, phones, basic office supplies) unless they have specialized requirements for that occupation
+- Focus on tools that actually differentiate capability in the specific profession
+- Consider implicit tool usage - if someone describes work that obviously requires certain tools, count those as matches even if not explicitly listed
+- Consider specialized/critical tools more heavily than generic ones when determining the occupation readiness score`,
+            outputExample: {
+                score: 90,
+                matches: ["Hypodermic needle", "Medical heat lamps", "Neuromuscular stimulators or kits", "Reflex hammers or mallets", "Surgical clamps or clips or forceps"],
+                gaps: ["Surgical scissors", "Therapeutic balls", "Therapeutic heating or cooling pads or compresses or packs"],
+                confidence: "high"
+            }
+        });
+    }
+
+    async compareAbilitiesFit(fullResumeData, onetAbilities) {
+        // Filter for important abilities only
+        const importantAbilities = onetAbilities.filter(a => (a.importance || 0) > 20);
+
+        return this.compareGeneric(fullResumeData, importantAbilities, {
+            dimension: 'abilities',
+            systemRole: 'You are an expert career counselor analyzing occupational preparedness regarding cognitive and interpersonal abilities.',
+            outputExample: {
+                score: 85,
+                matches: ["Deductive Reasoning", "Near Vision", "Oral Comprehension", "Oral Expression"],
+                gaps: ["Problem Sensitivity", "Written Comprehension", "Inductive Reasoning"],
+                confidence: "medium"
+            }
+        });
     }
 }
 

@@ -218,7 +218,7 @@ async function verifyEmptyDimensions(code, dimensions) {
     // Execute verification fetches
     const fetchResults = await rateLimiter.executeMany(
         verificationFetchers.map(f => f.fn),
-        (progress) => {
+        () => {
         }
     );
     
@@ -275,7 +275,7 @@ async function fetchAllDimensions(code, rateLimiter) {
     // Execute fetchers with rate limiting and retry logic
     const fetchResults = await rateLimiter.executeMany(
         dimensionFetchers.map(d => d.fn),
-        (progress) => {
+        () => {
         },
         taskConfigs
     );
@@ -287,6 +287,7 @@ async function fetchAllDimensions(code, rateLimiter) {
             results[dim.name] = result.data;
             metadata.successfulFetches++;
             if (result.attempts > 1) {
+                console.log(`Dimension ${dim.name} succeeded after ${result.attempts} attempts`);
             }
         } else {
             results[dim.name] = dim.name === 'education' ? [] : null;
@@ -326,6 +327,7 @@ async function storeFetchMetadata(code, metadata) {
         }, { merge: true });
         
     } catch (error) {
+        console.error('Failed to store fetch metadata:', error);
     }
 }
 
@@ -426,6 +428,7 @@ async function fetchEducation(code) {
             percentage: edu.percentage_of_respondents
         }));
     } catch (error) {
+        console.error('Failed to fetch education data:', error);
         return [];
     }
 }
@@ -450,6 +453,7 @@ async function fetchJobZone(code) {
         // The full details are stored in the job_zones collection
         return data.code || null;
     } catch (error) {
+        console.error('Failed to fetch job zone:', error);
         return null;
     }
 }

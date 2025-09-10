@@ -35,7 +35,7 @@ async function fetchGoogleDoc(documentId, _accessToken = null) {
         title: 'Google Doc' // Can't get title without API, but that's OK
       };
       
-    } catch (pdfError) {
+    } catch {
       // Fall back to TXT export if PDF fails
       const txtUrl = `https://docs.google.com/document/d/${documentId}/export?format=txt`;
       

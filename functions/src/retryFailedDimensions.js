@@ -95,7 +95,7 @@ async function retryFailedDimensions(request) {
         // Execute retry tasks
         const retryResults = await rateLimiter.executeMany(
             retryTasks,
-            (progress) => {
+            () => {
             }
         );
         
@@ -205,49 +205,41 @@ async function fetchDimension(code, dimensionType) {
 }
 
 async function fetchEducation(code) {
-    try {
-        const headers = getOnetHeaders();
-        const url = `${onetConfig.baseUrl}${onetConfig.endpoints.education(code)}`;
-        
-        const response = await fetch(url, { headers });
-        
-        if (!response.ok) {
-            if (response.status === 404) {
-                return [];
-            }
-            throw new Error(`O*NET API error: ${response.status}`);
+    const headers = getOnetHeaders();
+    const url = `${onetConfig.baseUrl}${onetConfig.endpoints.education(code)}`;
+    
+    const response = await fetch(url, { headers });
+    
+    if (!response.ok) {
+        if (response.status === 404) {
+            return [];
         }
-        
-        const data = await response.json();
-        return (data.response || []).map(edu => ({
-            id: edu.code,
-            category: edu.title,
-            percentage: edu.percentage_of_respondents
-        }));
-    } catch (error) {
-        throw error;
+        throw new Error(`O*NET API error: ${response.status}`);
     }
+    
+    const data = await response.json();
+    return (data.response || []).map(edu => ({
+        id: edu.code,
+        category: edu.title,
+        percentage: edu.percentage_of_respondents
+    }));
 }
 
 async function fetchJobZone(code) {
-    try {
-        const headers = getOnetHeaders();
-        const url = `${onetConfig.baseUrl}${onetConfig.endpoints.jobZone(code)}`;
-        
-        const response = await fetch(url, { headers });
-        
-        if (!response.ok) {
-            if (response.status === 404) {
-                return null;
-            }
-            throw new Error(`O*NET API error: ${response.status}`);
+    const headers = getOnetHeaders();
+    const url = `${onetConfig.baseUrl}${onetConfig.endpoints.jobZone(code)}`;
+    
+    const response = await fetch(url, { headers });
+    
+    if (!response.ok) {
+        if (response.status === 404) {
+            return null;
         }
-        
-        const data = await response.json();
-        return data.code || null;
-    } catch (error) {
-        throw error;
+        throw new Error(`O*NET API error: ${response.status}`);
     }
+    
+    const data = await response.json();
+    return data.code || null;
 }
 
 async function fetchAllPages(url, headers) {

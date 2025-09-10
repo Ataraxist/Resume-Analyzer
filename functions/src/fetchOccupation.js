@@ -160,7 +160,7 @@ async function fetchAllDimensions(code, rateLimiter) {
     // Execute fetchers with rate limiting and retry logic
     const fetchResults = await rateLimiter.executeMany(
         dimensionFetchers.map(d => d.fn),
-        (progress) => {
+        () => {
         },
         taskConfigs
     );
@@ -171,6 +171,7 @@ async function fetchAllDimensions(code, rateLimiter) {
         if (result.success) {
             results[dim.name] = result.data;
             if (result.attempts > 1) {
+                console.log(`Dimension ${dim.name} succeeded after ${result.attempts} attempts`);
             }
         } else {
             results[dim.name] = null;
@@ -208,6 +209,7 @@ async function storeFetchFailures(code, failedDimensions) {
         }, { merge: true });
         
     } catch (error) {
+        console.error('Failed to store fetch failures:', error);
     }
 }
 
@@ -303,6 +305,7 @@ async function fetchEducation(code) {
             percentage: edu.percentage_of_respondents
         }));
     } catch (error) {
+        console.error('Failed to fetch education data:', error);
         return [];
     }
 }
@@ -325,6 +328,7 @@ async function fetchJobZone(code) {
         // Just return the job zone code
         return data.code || null;
     } catch (error) {
+        console.error('Failed to fetch job zone:', error);
         return null;
     }
 }

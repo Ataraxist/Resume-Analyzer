@@ -4,8 +4,8 @@ const { HttpsError } = require('firebase-functions/v2/https');
 const db = getFirestore();
 
 async function searchOccupations(request) {
-  // Extract data and auth from the v2 request object
-  const { data, auth } = request;
+  // Extract data from the v2 request object
+  const { data } = request;
   
   
   
@@ -111,6 +111,7 @@ async function searchOccupations(request) {
       };
     }
   } catch (error) {
+    console.error('Search occupations error:', error);
     throw new HttpsError('internal', 'Failed to search occupations');
   }
 }

@@ -5,13 +5,8 @@ const {
   calculateOverallScore, 
   calculateFitCategory, 
   generateScoreBreakdown,
-  calculateImprovementImpact,
-  calculateTimeToQualify 
+  calculateImprovementImpact
 } = require('./services/scoreCalculator.js');
-const { 
-  generateRecommendations, 
-  analyzeGaps 
-} = require('./services/gapAnalyzer.js');
 
 const db = getFirestore();
 
@@ -147,20 +142,9 @@ async function analyzeResume(request, response) {
     const overallFitScore = calculateOverallScore(dimensionScores);
     const fitCategoryDetails = calculateFitCategory(overallFitScore);
     
-    // Analyze gaps with prioritization
-    const gaps = analyzeGaps(dimensionScores, occupationDimensions);
-    
-    // Generate recommendations with time estimates
-    const recommendations = generateRecommendations(
-      dimensionScores,
-      gaps,
-      occupationDimensions
-    );
-    
     // Calculate additional analytics
     const scoreBreakdown = generateScoreBreakdown(dimensionScores);
     const improvementImpact = calculateImprovementImpact(dimensionScores);
-    const timeToQualify = calculateTimeToQualify(dimensionScores, gaps);
 
     // Generate narrative summary
     const generateNarrativeSummary = () => {
@@ -222,24 +206,24 @@ async function analyzeResume(request, response) {
         }
       }
       
-      // Add specific examples from matches and gaps
-      const criticalGaps = gaps.critical || [];
-      if (criticalGaps.length > 0 && criticalGaps[0].item) {
-        strengthsAndGaps += `Specifically, gaining experience with ${criticalGaps[0].item} would have the highest impact on your candidacy.`;
-      } else if (gaps.important && gaps.important.length > 0 && gaps.important[0].item) {
-        strengthsAndGaps += `Building competency in ${gaps.important[0].item} would notably strengthen your profile.`;
+      // Add specific examples from dimension gaps
+      const lowestScoringDimension = Object.entries(dimensionScores)
+        .sort((a, b) => a[1].score - b[1].score)[0];
+      if (lowestScoringDimension && lowestScoringDimension[1].gaps && lowestScoringDimension[1].gaps.length > 0) {
+        const topGap = toString(lowestScoringDimension[1]);
+        strengthsAndGaps += `Specifically, gaining experience with "${topGap}" would have the highest impact on your candidacy.`;
       }
       
       // Path Forward
       let pathForward = '';
-      if (timeToQualify.totalMonths === 0) {
+      if (overallFitScore >= 80) {
         pathForward = `You're ready to apply now! Focus on tailoring your resume to highlight your strong alignment with the role requirements, particularly emphasizing your ${topStrengths[0] || 'relevant experience'}. In interviews, be prepared to discuss specific examples that demonstrate your qualifications.`;
-      } else if (timeToQualify.totalMonths <= 6) {
-        pathForward = `With approximately ${timeToQualify.totalMonths} months of focused development, you can become fully qualified for this role. Start with ${recommendations[0]?.actions?.[0]?.action || 'the high-priority recommendations'}, which will have the most immediate impact. Consider applying to similar roles now while continuing your development, as you're close enough to be considered with strong interview performance.`;
-      } else if (timeToQualify.totalMonths <= 12) {
-        pathForward = `Your qualification timeline of ${timeToQualify.totalMonths} months is very achievable with consistent effort. Begin by ${recommendations[0]?.actions?.[0]?.action || 'addressing the high-priority skill gaps'}, then progressively work through the medium-priority items. Consider seeking stretch assignments or projects in your current role that align with these development areas.`;
+      } else if (overallFitScore >= 60) {
+        pathForward = `You're a competitive candidate for this role. Focus on strengthening your ${topGaps[0] || 'weaker areas'} to improve your qualification. Consider applying to similar roles now while continuing your development, as you're close enough to be considered with strong interview performance.`;
+      } else if (overallFitScore >= 40) {
+        pathForward = `Your qualification is achievable with consistent effort. Begin by addressing gaps in ${topGaps[0] || 'the core requirements'}, then progressively strengthen other areas. Consider seeking stretch assignments or projects in your current role that align with these development areas.`;
       } else {
-        pathForward = `This role represents a longer-term career goal requiring approximately ${Math.round(timeToQualify.totalMonths / 12)} year${timeToQualify.totalMonths >= 24 ? 's' : ''} of development. Start by building a strong foundation in ${topGaps[0] || 'the core requirements'}, potentially through formal education or certifications. Consider intermediate roles that can serve as stepping stones while you build the necessary qualifications.`;
+        pathForward = `This role represents a longer-term career goal. Start by building a strong foundation in ${topGaps[0] || 'the core requirements'}, potentially through formal education or certifications. Consider intermediate roles that can serve as stepping stones while you build the necessary qualifications.`;
       }
       
       return {
@@ -262,16 +246,13 @@ async function analyzeResume(request, response) {
       fitCategoryDetails,
       dimensionScores,
       scoreBreakdown,
-      gaps,
-      recommendations,
       improvementImpact,
-      timeToQualify,
-      narrativeSummary, // Add narrative summary
+      narrativeSummary, 
       createdAt: FieldValue.serverTimestamp(),
       resumeFileName: resumeData.fileName,
-      analysisVersion: '3.0', // Updated version
-      analysisModel: process.env.OPENAI_ANALYSIS_MODEL || 'gpt-5',
-      requestId: requestId || null // Store request ID for idempotency
+      analysisVersion: '3.1', 
+      analysisModel: process.env.OPENAI_ANALYSIS_MODEL,
+      requestId: requestId || null 
     };
 
     // Only save analysis if document was created (at least one dimension succeeded)
@@ -289,9 +270,7 @@ async function analyzeResume(request, response) {
       overallFitScore,
       fitCategory: fitCategoryDetails.category,
       fitCategoryDescription: fitCategoryDetails.description,
-      recommendations,
-      timeToQualify: timeToQualify.qualificationLevel,
-      narrativeSummary, // Add narrative summary to streaming
+      narrativeSummary, 
       progress: 100
     });
 
@@ -302,6 +281,8 @@ async function analyzeResume(request, response) {
     };
 
   } catch (error) {
+    console.error('Error in analyzeResume:', error);
+    console.error('Error stack:', error.stack);
     
     if (error instanceof HttpsError) {
       throw error;
@@ -315,6 +296,12 @@ async function analyzeDimensionsWithComparator(resumeData, occupationDimensions,
   const dimensions = {};
   let firstSuccessTriggered = false;
 
+  // Debug logging to understand the data structure
+  console.log('analyzeDimensionsWithComparator received resumeData with keys:', Object.keys(resumeData || {}));
+  console.log('resumeData.experience exists?', !!resumeData?.experience);
+  console.log('resumeData.skills exists?', !!resumeData?.skills);
+  console.log('First 200 chars of resumeData:', JSON.stringify(resumeData).substring(0, 200));
+
   // Analyze tasks/experience match
   if (resumeData.experience && occupationDimensions.tasks) {
     response.sendChunk({
@@ -325,7 +312,7 @@ async function analyzeDimensionsWithComparator(resumeData, occupationDimensions,
     
     try {
       const tasksAnalysis = await dimensionComparator.compareTasksFit(
-        resumeData.experience,
+        resumeData,
         occupationDimensions.tasks
       );
       dimensions.tasks = tasksAnalysis;
@@ -343,6 +330,7 @@ async function analyzeDimensionsWithComparator(resumeData, occupationDimensions,
         progress: 30
       });
     } catch (error) {
+      console.error('Error analyzing tasks:', error);
       dimensions.tasks = { score: 0, matches: [], gaps: [], error: error.message };
     }
   }
@@ -357,7 +345,7 @@ async function analyzeDimensionsWithComparator(resumeData, occupationDimensions,
     
     try {
       const skillsAnalysis = await dimensionComparator.compareSkillsFit(
-        resumeData.skills,
+        resumeData,
         occupationDimensions.skills,
         occupationDimensions.technologySkills
       );
@@ -376,6 +364,7 @@ async function analyzeDimensionsWithComparator(resumeData, occupationDimensions,
         progress: 40
       });
     } catch (error) {
+      console.error('Error analyzing skills:', error);
       dimensions.skills = { score: 0, matches: [], gaps: [], error: error.message };
     }
   }
@@ -390,7 +379,7 @@ async function analyzeDimensionsWithComparator(resumeData, occupationDimensions,
     
     try {
       const technologySkillsAnalysis = await dimensionComparator.compareTechnologySkillsFit(
-        resumeData.skills,
+        resumeData,
         occupationDimensions.technologySkills
       );
       dimensions.technologySkills = technologySkillsAnalysis;
@@ -408,6 +397,7 @@ async function analyzeDimensionsWithComparator(resumeData, occupationDimensions,
         progress: 50
       });
     } catch (error) {
+      console.error('Error analyzing technologySkills:', error);
       dimensions.technologySkills = { score: 0, matches: [], gaps: [], error: error.message };
     }
   }
@@ -422,7 +412,7 @@ async function analyzeDimensionsWithComparator(resumeData, occupationDimensions,
     
     try {
       const educationAnalysis = await dimensionComparator.compareEducationFit(
-        resumeData.education,
+        resumeData,
         occupationDimensions.education,
         null  // Remove job_zone from comparison
       );
@@ -441,7 +431,8 @@ async function analyzeDimensionsWithComparator(resumeData, occupationDimensions,
         progress: 60
       });
     } catch (error) {
-      dimensions.education = { score: 50, meetsRequirements: true, error: error.message };
+      console.error('Error analyzing education:', error);
+      dimensions.education = { score: 0, matches: [], gaps: [], error: error.message };
     }
   }
 
@@ -455,7 +446,7 @@ async function analyzeDimensionsWithComparator(resumeData, occupationDimensions,
     
     try {
       const workActivitiesAnalysis = await dimensionComparator.compareWorkActivitiesFit(
-        resumeData.experience,
+        resumeData,
         occupationDimensions.workActivities
       );
       dimensions.workActivities = workActivitiesAnalysis;
@@ -473,6 +464,7 @@ async function analyzeDimensionsWithComparator(resumeData, occupationDimensions,
         progress: 70
       });
     } catch (error) {
+      console.error('Error analyzing workActivities:', error);
       dimensions.workActivities = { score: 0, matches: [], gaps: [], error: error.message };
     }
   }
@@ -505,6 +497,7 @@ async function analyzeDimensionsWithComparator(resumeData, occupationDimensions,
         progress: 80
       });
     } catch (error) {
+      console.error('Error analyzing abilities:', error);
       dimensions.abilities = { score: 0, matches: [], gaps: [], error: error.message };
     }
   }
@@ -537,6 +530,7 @@ async function analyzeDimensionsWithComparator(resumeData, occupationDimensions,
         progress: 90
       });
     } catch (error) {
+      console.error('Error analyzing knowledge:', error);
       dimensions.knowledge = { score: 0, matches: [], gaps: [], error: error.message };
     }
   }
@@ -550,11 +544,10 @@ async function analyzeDimensionsWithComparator(resumeData, occupationDimensions,
     });
     
     try {
-      // Pass both skills and experience for better tool detection
+      // Pass full resume data for better tool detection
       const toolsAnalysis = await dimensionComparator.compareToolsFit(
-        resumeData.skills,
-        occupationDimensions.tools,
-        resumeData.experience
+        resumeData,
+        occupationDimensions.tools
       );
       dimensions.tools = toolsAnalysis;
       
@@ -571,6 +564,7 @@ async function analyzeDimensionsWithComparator(resumeData, occupationDimensions,
         progress: 100
       });
     } catch (error) {
+      console.error('Error analyzing tools:', error);
       dimensions.tools = { score: 0, matches: [], gaps: [], error: error.message };
     }
   }

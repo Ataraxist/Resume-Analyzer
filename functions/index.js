@@ -12,6 +12,7 @@ const { searchOccupations } = require('./src/searchOccupations.js');
 const { getOccupationDetails } = require('./src/getOccupationDetails.js');
 const { fetchOccupation } = require('./src/fetchOccupation.js');
 const { initializeJobZones } = require('./src/initializeJobZones.js');
+const { migrateAnonymousData, checkAnonymousData } = require('./src/migrateAnonymousData.js');
 
 // Callable Functions (HTTPS) - v2 with CORS enabled
 // Functions that require authentication
@@ -35,6 +36,10 @@ exports.fetchOccupationFunction = onCall({ cors: true }, fetchOccupation);
 
 // Admin function to initialize Job Zones (run once)
 exports.initializeJobZonesFunction = onCall({ cors: true }, initializeJobZones);
+
+// Data migration functions for anonymous users
+exports.migrateAnonymousDataFunction = onCall({ cors: true }, migrateAnonymousData);
+exports.checkAnonymousDataFunction = onCall({ cors: true }, checkAnonymousData);
 
 // Note: User creation will be handled in the frontend after successful auth
 // We'll create the user document when they first sign in
