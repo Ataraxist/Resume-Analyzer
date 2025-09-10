@@ -400,17 +400,13 @@ function UploadPage() {
         <div className="max-w-7xl mx-auto px-4">
           {/* Real-time Processing Status */}
           {processingStatus === 'processing' && (
-            <div className="mb-6">
-              <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-                <StreamingStatusDisplay
-                  currentOperation={currentParsingField}
-                  completedOperations={completedFields}
-                  pendingOperations={pendingFields}
-                  progress={parseProgress}
-                  type="parsing"
-                />
-              </div>
-            </div>
+            <StreamingStatusDisplay
+              currentOperation={currentParsingField}
+              completedOperations={completedFields}
+              pendingOperations={pendingFields}
+              progress={parseProgress}
+              type="parsing"
+            />
           )}
 
           {/* Header with upload new document button */}

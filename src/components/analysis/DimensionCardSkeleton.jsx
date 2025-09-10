@@ -1,9 +1,6 @@
+import { formatDimensionName } from '../../utils/statusFormatters';
+
 function DimensionCardSkeleton({ dimension }) {
-  const formatDimensionName = (name) => {
-    return name.charAt(0).toUpperCase() + 
-           name.slice(1).replace(/([A-Z])/g, ' $1').trim();
-  };
-  
   return (
     <div className="card animate-pulse">
       {/* Header with dimension name and score */}

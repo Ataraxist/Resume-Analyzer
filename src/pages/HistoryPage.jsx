@@ -49,6 +49,7 @@ function HistoryPage() {
       setAnalyses(userAnalyses);
       setFilteredAnalyses(userAnalyses);
     } catch (err) {
+      console.error('Failed to load analyses:', err);
       setError('Failed to load your analysis history. Please try again.');
     } finally {
       setLoading(false);
@@ -71,6 +72,7 @@ function HistoryPage() {
       await firebaseAnalysisService.deleteAnalysis(analysisId, user.uid);
       setAnalyses(prev => prev.filter(a => a.id !== analysisId));
     } catch (err) {
+      console.error('Failed to delete analysis:', err);
       alert('Failed to delete analysis. Please try again.');
     } finally {
       setDeleteLoading(null);

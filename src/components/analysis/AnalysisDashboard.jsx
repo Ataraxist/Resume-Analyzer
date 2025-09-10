@@ -7,11 +7,9 @@ import DimensionCardSkeleton from './DimensionCardSkeleton';
 import AnalysisSummarySkeleton from './AnalysisSummarySkeleton';
 import NarrativeSummary from './NarrativeSummary';
 import NarrativeSummarySkeleton from './NarrativeSummarySkeleton';
-import RecommendationsPanel from './RecommendationsPanel';
-import RecommendationsPanelSkeleton from './RecommendationsPanelSkeleton';
-import TimeToQualifyWidget from './TimeToQualifyWidget';
-import TimeToQualifyWidgetSkeleton from './TimeToQualifyWidgetSkeleton';
+import ImprovementImpact from './ImprovementImpact';
 import { normalizeDimensionScore } from '../../utils/analysisDataNormalizer';
+import { formatDimensionName } from '../../utils/statusFormatters';
 
 // Helper to get color class based on fit category
 const getFitCategoryColor = (category) => {
@@ -23,29 +21,16 @@ const getFitCategoryColor = (category) => {
   return 'text-red-600';
 };
 
-const getDimensionDisplayName = (key) => {
-  const nameMap = {
-    tasks: 'Job Tasks',
-    skills: 'Core Skills',
-    education: 'Education',
-    workActivities: 'Work Activities',
-    knowledge: 'Knowledge Areas',
-    tools: 'Tools & Software'
-  };
-  return nameMap[key] || key.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
-};
-
 const formatDimensionScores = (scores) => {
   return Object.entries(scores).map(([key, value]) => {
     const normalized = normalizeDimensionScore(value);
     return {
-      dimension: getDimensionDisplayName(key),
+      dimension: formatDimensionName(key),
       key: key,
       score: normalized.score,
       matches: normalized.matches,
       gaps: normalized.gaps,
       confidence: value.confidence || 'medium',
-      importance: value.importance || 'medium',
       strengthAreas: value.strengthAreas || [],
       alternativeTools: value.alternativeTools || []
     };
@@ -211,24 +196,23 @@ function AnalysisDashboard({ data }) {
                 {/* Right Column - Existing Summary Content */}
                 <div className="space-y-3">
                   <div>
-                    <p className="text-sm text-gray-600">Time to Qualify</p>
-                    <p className="font-semibold text-gray-900">
-                      {data.timeToQualify?.summary || 'Variable based on gaps'}
-                    </p>
-                  </div>
-                  
-                  <div>
                     <p className="text-sm text-gray-600">Key Strengths</p>
                     <div className="flex flex-wrap gap-2 mt-1">
-                      {Object.entries(data.dimensionScores)
+                      {data.scoreBreakdown?.strengths?.slice(0, 3).map((item) => (
+                        <span key={item.dimension} className="badge badge-success">
+                          {item.dimension}
+                        </span>
+                      )) || 
+                      // Fallback to inline calculation if scoreBreakdown not available (during streaming)
+                      Object.entries(data.dimensionScores || {})
                         .filter(([, dimData]) => {
                           const normalized = normalizeDimensionScore(dimData);
-                          return normalized.score >= 70;
+                          return normalized.score >= 80;
                         })
                         .slice(0, 3)
                         .map(([dim]) => (
                           <span key={dim} className="badge badge-success">
-                            {dim.charAt(0).toUpperCase() + dim.slice(1)}
+                            {formatDimensionName(dim)}
                           </span>
                         ))}
                     </div>
@@ -237,7 +221,13 @@ function AnalysisDashboard({ data }) {
                   <div>
                     <p className="text-sm text-gray-600">Areas for Improvement</p>
                     <div className="flex flex-wrap gap-2 mt-1">
-                      {Object.entries(data.dimensionScores)
+                      {data.scoreBreakdown?.critical?.slice(0, 3).map((item) => (
+                        <span key={item.dimension} className="badge badge-danger">
+                          {item.dimension}
+                        </span>
+                      )) ||
+                      // Fallback to inline calculation if scoreBreakdown not available (during streaming)
+                      Object.entries(data.dimensionScores || {})
                         .filter(([, dimData]) => {
                           const normalized = normalizeDimensionScore(dimData);
                           return normalized.score < 50;
@@ -245,7 +235,7 @@ function AnalysisDashboard({ data }) {
                         .slice(0, 3)
                         .map(([dim]) => (
                           <span key={dim} className="badge badge-danger">
-                            {dim.charAt(0).toUpperCase() + dim.slice(1)}
+                            {formatDimensionName(dim)}
                           </span>
                         ))}
                     </div>
@@ -253,6 +243,13 @@ function AnalysisDashboard({ data }) {
                 </div>
               </div>
             </div>
+          )}
+          
+          {/* Career Summary */}
+          {data.isStreaming && !data.narrativeSummary ? (
+            <NarrativeSummarySkeleton />
+          ) : (
+            <NarrativeSummary narrativeSummary={data.narrativeSummary} />
           )}
           
           {/* Radar Chart */}
@@ -275,16 +272,6 @@ function AnalysisDashboard({ data }) {
         </div>
       </section>
       
-      {/* Career Summary Section */}
-      <section className="w-full">
-        <h2 className="text-2xl font-bold text-gray-900 mb-6 pb-2 border-b border-gray-200">Career Summary</h2>
-        {data.isStreaming && !data.narrativeSummary ? (
-          <NarrativeSummarySkeleton />
-        ) : (
-          <NarrativeSummary narrativeSummary={data.narrativeSummary} />
-        )}
-      </section>
-      
       {/* Dimension Analysis Section */}
       <section className="w-full">
         <h2 className="text-2xl font-bold text-gray-900 mb-6 pb-2 border-b border-gray-200">Dimension Analysis</h2>
@@ -301,27 +288,13 @@ function AnalysisDashboard({ data }) {
         </div>
       </section>
       
-      {/* Time to Qualify Section */}
-      {(data.isStreaming || data.timeToQualify) && (
+      {/* Improvement Impact Section */}
+      {data.improvementImpact && data.improvementImpact.length > 0 && (
         <section className="w-full">
-          <h2 className="text-2xl font-bold text-gray-900 mb-6 pb-2 border-b border-gray-200">Career Timeline</h2>
-          {data.isStreaming && !data.timeToQualify ? (
-            <TimeToQualifyWidgetSkeleton />
-          ) : (
-            <TimeToQualifyWidget timeToQualify={data.timeToQualify} />
-          )}
+          <h2 className="text-2xl font-bold text-gray-900 mb-6 pb-2 border-b border-gray-200">Score Improvement Strategy</h2>
+          <ImprovementImpact improvementImpact={data.improvementImpact} />
         </section>
       )}
-
-      {/* Recommendations Section */}
-      <section className="w-full">
-        <h2 className="text-2xl font-bold text-gray-900 mb-6 pb-2 border-b border-gray-200">Recommendations</h2>
-        {data.isStreaming && (!data.recommendations || data.recommendations.length === 0) ? (
-          <RecommendationsPanelSkeleton />
-        ) : (
-          <RecommendationsPanel recommendations={data.recommendations} />
-        )}
-      </section>
     </div>
   );
 }

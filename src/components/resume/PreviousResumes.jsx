@@ -23,6 +23,7 @@ function PreviousResumes({ onSelectResume, onRefresh }) {
       }
       setResumes(recentResumes);
     } catch (err) {
+      console.error('Failed to fetch resumes:', err);
       // Don't show error for empty results, just set empty array
       setResumes([]);
     } finally {
@@ -41,6 +42,7 @@ function PreviousResumes({ onSelectResume, onRefresh }) {
         await firebaseResumeService.deleteResume(resumeId, user.uid);
         fetchMyResumes();
       } catch (err) {
+        console.error('Failed to delete resume:', err);
         alert('Failed to delete resume');
       }
     }
@@ -58,6 +60,7 @@ function PreviousResumes({ onSelectResume, onRefresh }) {
         filename: resume.fileName
       });
     } catch (err) {
+      console.error('Failed to load resume:', err);
       alert('Failed to load resume');
     }
   };

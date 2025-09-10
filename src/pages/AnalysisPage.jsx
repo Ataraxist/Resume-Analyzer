@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { useLocation, useNavigate, useParams, Link } from 'react-router-dom';
 import firebaseAnalysisService from '../services/firebaseAnalysisService';
 import AnalysisDashboard from '../components/analysis/AnalysisDashboard';
-import StreamingStatusDisplay from '../components/common/StreamingStatusDisplay';
+import AnalysisNotificationModal from '../components/analysis/AnalysisNotificationModal';
 import { getExpectedAnalysisDimensions } from '../utils/statusFormatters';
 import { Loader2, AlertCircle } from 'lucide-react';
 
@@ -14,14 +14,11 @@ function AnalysisPage() {
   const [isStreaming, setIsStreaming] = useState(false);
   const [analysisData, setAnalysisData] = useState(null);
   const [dimensionScores, setDimensionScores] = useState({});
-  const [progress, setProgress] = useState(0);
-  const [currentDimension, setCurrentDimension] = useState(null);
-  const [completedDimensions, setCompletedDimensions] = useState([]);
-  const [pendingDimensions, setPendingDimensions] = useState([]);
   const [isAnalysisInProgress, setIsAnalysisInProgress] = useState(false);
   const [abortController, setAbortController] = useState(null);
   const [loadingExistingAnalysis, setLoadingExistingAnalysis] = useState(false);
   const [existingAnalysisData, setExistingAnalysisData] = useState(null);
+  const [showAnalysisModal, setShowAnalysisModal] = useState(true);
   
   const resumeId = location.state?.resumeId;
   const selectedOccupation = location.state?.selectedOccupation;
@@ -35,16 +32,14 @@ function AnalysisPage() {
     setIsAnalysisInProgress(true);
     setIsStreaming(true);
     setError(null);
+    setShowAnalysisModal(true);
     
     // Create new abort controller for this analysis
     const controller = new AbortController();
     setAbortController(controller);
     
     // Initialize dimension tracking
-    const expectedDimensions = getExpectedAnalysisDimensions();
-    setPendingDimensions(expectedDimensions);
-    setCompletedDimensions([]);
-    setCurrentDimension(null);
+    getExpectedAnalysisDimensions();
     
     // Initialize analysis data structure with new fields
     const initialData = {
@@ -55,11 +50,8 @@ function AnalysisPage() {
       overallFitScore: 0,
       fitCategory: null,
       fitCategoryDescription: null,
-      recommendations: [],
-      gaps: {},
       scoreBreakdown: null,
       improvementImpact: null,
-      timeToQualify: null,
       status: 'processing'
     };
     setAnalysisData(initialData);
@@ -77,15 +69,10 @@ function AnalysisPage() {
           return;
         }
         
-        // Update progress
-        if (chunk.progress !== undefined) {
-          setProgress(chunk.progress);
-        }
         
         // Handle dimension started
         if (chunk.type === 'dimension_started') {
-          setCurrentDimension(chunk.dimension);
-          setPendingDimensions(prev => prev.filter(d => d !== chunk.dimension));
+          // Dimension started
         }
         
         // Handle dimension completion
@@ -106,8 +93,6 @@ function AnalysisPage() {
           }));
           
           // Update dimension tracking
-          setCompletedDimensions(prev => [...prev, chunk.dimension]);
-          setCurrentDimension(null);
         }
         
         // Handle analysis completion
@@ -118,7 +103,6 @@ function AnalysisPage() {
             overallFitScore: chunk.overallFitScore,
             fitCategory: chunk.fitCategory,
             fitCategoryDescription: chunk.fitCategoryDescription,
-            recommendations: chunk.recommendations || [],
             timeToQualify: chunk.timeToQualify,
             narrativeSummary: chunk.narrativeSummary, // Add narrative summary
             status: 'completed',
@@ -128,7 +112,6 @@ function AnalysisPage() {
           setAnalysisData(completedAnalysis);
           setIsStreaming(false);
           setIsAnalysisInProgress(false);
-          setProgress(100);
           
           // Update URL with analysisId for bookmarking/sharing
           // Use replace to avoid adding to history stack
@@ -146,11 +129,8 @@ function AnalysisPage() {
         setAnalysisData(prev => ({
           ...prev,
           ...result.analysis,
-          recommendations: result.analysis.recommendations || prev.recommendations || [],
-          gaps: result.analysis.gaps || {},
           scoreBreakdown: result.analysis.scoreBreakdown || null,
           improvementImpact: result.analysis.improvementImpact || null,
-          timeToQualify: result.analysis.timeToQualify || null,
           fitCategoryDetails: result.analysis.fitCategoryDetails || null
         }));
         
@@ -202,12 +182,8 @@ function AnalysisPage() {
     }
     
     setError(null);
-    setProgress(0);
     setDimensionScores({});
     setIsAnalysisInProgress(false);
-    setCurrentDimension(null);
-    setCompletedDimensions([]);
-    setPendingDimensions(getExpectedAnalysisDimensions());
     
     // Small delay before retry to ensure cleanup
     setTimeout(() => {
@@ -315,20 +291,12 @@ function AnalysisPage() {
     
     return (
       <div className="max-w-7xl mx-auto">
-        {/* Real-time Analysis Status - only during streaming */}
-        {isStreaming && (
-          <div className="mb-8">
-            <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-              <StreamingStatusDisplay
-                currentOperation={currentDimension}
-                completedOperations={completedDimensions}
-                pendingOperations={pendingDimensions}
-                progress={progress}
-                type="analysis"
-              />
-            </div>
-          </div>
-        )}
+        {/* Analysis notification modal - only during streaming */}
+        <AnalysisNotificationModal
+          isOpen={isStreaming && showAnalysisModal}
+          occupationTitle={occupationTitle}
+          onClose={() => setShowAnalysisModal(false)}
+        />
         
         {/* Show header */}
         <div className="mb-8">
@@ -336,7 +304,7 @@ function AnalysisPage() {
             {occupationTitle} Career Readiness Assessment
           </h1>
           <p className="text-sm text-gray-500">
-            {isStreaming ? 'Assessing your career readiness in real-time...' : occupationCode}
+            {isStreaming ? 'Assessing your career readiness...' : occupationCode}
           </p>
         </div>
         

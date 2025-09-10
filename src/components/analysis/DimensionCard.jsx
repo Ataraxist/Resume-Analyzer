@@ -1,5 +1,6 @@
-import { CheckCircle, XCircle, AlertCircle, AlertTriangle, Info } from 'lucide-react';
+import { CheckCircle, XCircle, AlertCircle, AlertTriangle, Info, Shield, ShieldAlert, ShieldCheck } from 'lucide-react';
 import { normalizeDimensionScore } from '../../utils/analysisDataNormalizer';
+import { formatDimensionName } from '../../utils/statusFormatters';
 
 function DimensionCard({ dimension, data }) {
   // Normalize the data to ensure consistent structure
@@ -7,11 +8,47 @@ function DimensionCard({ dimension, data }) {
   const score = normalizedData.score;
   const matches = normalizedData.matches;
   const gaps = normalizedData.gaps;
+  const confidence = data.confidence || 'medium';
   
-  const formatDimensionName = (name) => {
-    return name.charAt(0).toUpperCase() + 
-           name.slice(1).replace(/([A-Z])/g, ' $1').trim();
+  // Get confidence display info
+  const getConfidenceInfo = () => {
+    switch (confidence) {
+      case 'high':
+        return {
+          icon: ShieldCheck,
+          color: 'text-green-600',
+          bgColor: 'bg-green-50',
+          label: 'High Confidence',
+          tooltip: 'Strong evidence found for assessment accuracy'
+        };
+      case 'medium':
+        return {
+          icon: Shield,
+          color: 'text-blue-600',
+          bgColor: 'bg-blue-50',
+          label: 'Medium Confidence',
+          tooltip: 'Moderate evidence found for assessment accuracy'
+        };
+      case 'low':
+        return {
+          icon: ShieldAlert,
+          color: 'text-amber-600',
+          bgColor: 'bg-amber-50',
+          label: 'Low Confidence',
+          tooltip: 'Limited evidence available for assessment'
+        };
+      default:
+        return {
+          icon: Shield,
+          color: 'text-gray-600',
+          bgColor: 'bg-gray-50',
+          label: 'Confidence Unknown',
+          tooltip: 'Assessment confidence not determined'
+        };
+    }
   };
+  
+  const confidenceInfo = getConfidenceInfo();
   
   // Determine gap priority
   const getGapPriority = () => {
@@ -38,13 +75,31 @@ function DimensionCard({ dimension, data }) {
     return 'text-danger-600';
   };
   
+  const ConfidenceIcon = confidenceInfo.icon;
+  
   return (
     <div className="card">
       {/* Header with dimension name and score */}
       <div className="flex items-center justify-between mb-4">
-        <h4 className="text-lg font-semibold text-gray-900">
-          O*NET Occupation {formatDimensionName(dimension)} Overlap
-        </h4>
+        <div className="flex items-center gap-3">
+          <h4 className="text-lg font-semibold text-gray-900">
+            O*NET Occupation {formatDimensionName(dimension)} Overlap
+          </h4>
+          <div className="group relative">
+            <div className={`flex items-center gap-1.5 px-2.5 py-1 rounded-full ${confidenceInfo.bgColor}`}>
+              <ConfidenceIcon className={`h-4 w-4 ${confidenceInfo.color}`} />
+              <span className={`text-xs font-medium ${confidenceInfo.color}`}>
+                {confidenceInfo.label}
+              </span>
+            </div>
+            <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-3 py-1.5 bg-gray-900 text-white text-xs rounded-lg opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 whitespace-nowrap z-10">
+              {confidenceInfo.tooltip}
+              <div className="absolute top-full left-1/2 -translate-x-1/2 -mt-1">
+                <div className="border-4 border-transparent border-t-gray-900"></div>
+              </div>
+            </div>
+          </div>
+        </div>
         <span className={`text-2xl font-bold ${getScoreTextColor(score)}`}>
           {score}%
         </span>
@@ -59,7 +114,7 @@ function DimensionCard({ dimension, data }) {
       </div>
       
       {/* Summary Stats */}
-      <div className="flex items-center gap-6 mb-6">
+      <div className="flex items-center gap-6 mb-4">
         <div className="flex items-center gap-2">
           <CheckCircle className="h-5 w-5 text-success-600" />
           <span className="text-sm font-medium text-gray-700">
@@ -84,6 +139,18 @@ function DimensionCard({ dimension, data }) {
           )}
         </div>
       </div>
+      
+      {/* Confidence explanation for low confidence */}
+      {confidence === 'low' && (
+        <div className="mb-6 p-3 bg-amber-50 border border-amber-200 rounded-lg">
+          <div className="flex gap-2">
+            <Info className="h-4 w-4 text-amber-600 mt-0.5 flex-shrink-0" />
+            <p className="text-xs text-amber-800">
+              <span className="font-semibold">Low assessment confidence:</span> Your resume may not contain explicit evidence for all {formatDimensionName(dimension).toLowerCase()} requirements. Consider adding more specific examples and details related to this area to improve assessment accuracy.
+            </p>
+          </div>
+        </div>
+      )}
       
       {/* Side-by-side Matches and Gaps */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 pt-4 border-t border-gray-200">
@@ -123,21 +190,6 @@ function DimensionCard({ dimension, data }) {
           )}
         </div>
       </div>
-      
-      {/* Special Cases for Education */}
-      {dimension === 'education' && data.meetsRequirements !== undefined && (
-        <div className={`mt-4 p-3 rounded-lg ${
-          data.meetsRequirements ? 'bg-success-50' : 'bg-warning-50'
-        }`}>
-          <p className={`text-sm font-medium ${
-            data.meetsRequirements ? 'text-success-800' : 'text-warning-800'
-          }`}>
-            {data.meetsRequirements 
-              ? '✓ Meets education requirements'
-              : '⚠ Additional education may be beneficial'}
-          </p>
-        </div>
-      )}
     </div>
   );
 }

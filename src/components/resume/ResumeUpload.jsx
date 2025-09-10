@@ -22,7 +22,6 @@ function ResumeUpload({ onUpload, onGoogleDocsImport }) {
     }
     
     if (acceptedFiles.length > 0) {
-      toastService.info(`Processing ${acceptedFiles[0].name}...`);
       onUpload(acceptedFiles[0]);
     }
   }, [onUpload]);
@@ -62,7 +61,6 @@ function ResumeUpload({ onUpload, onGoogleDocsImport }) {
     }
     
     setIsImporting(true);
-    toastService.info('Importing from Google Docs...');
     try {
       await onGoogleDocsImport(googleDocsUrl);
       setGoogleDocsUrl('');

@@ -1,94 +1,62 @@
-import { CheckCircle, Circle, Loader2 } from 'lucide-react';
+import { Compass } from 'lucide-react';
 import { formatFieldName, formatDimensionName } from '../../utils/statusFormatters';
 
 function StreamingStatusDisplay({ 
   currentOperation, 
-  completedOperations = [], 
-  pendingOperations = [],
   progress = 0,
   type = 'parsing' // 'parsing' or 'analysis'
 }) {
   const formatter = type === 'parsing' ? formatFieldName : formatDimensionName;
   
-  // Combine all operations for display
-  const allOperations = [
-    ...completedOperations.map(op => ({ name: op, status: 'completed' })),
-    ...(currentOperation ? [{ name: currentOperation, status: 'in_progress' }] : []),
-    ...pendingOperations.map(op => ({ name: op, status: 'pending' }))
-  ];
-
+  // Determine the action verb based on type
+  const actionVerb = type === 'parsing' ? 'Extracting' : 'Analyzing';
+  
   return (
-    <div className="w-full space-y-4">
-      {/* Current Status Message */}
-      <div className="text-center">
-        <p className="text-lg font-medium text-gray-900">
-          {currentOperation ? (
-            <>
-              {type === 'parsing' ? 'Parsing' : 'Analyzing'} {formatter(currentOperation)}...
-            </>
-          ) : (
-            <>
-              {type === 'parsing' ? 'Preparing to parse resume' : 'Preparing analysis'}...
-            </>
-          )}
-        </p>
-      </div>
-
-      {/* Progress Bar */}
-      <div className="w-full">
-        <div className="flex justify-between text-sm text-gray-600 mb-1">
-          <span>Progress</span>
-          <span>{Math.round(progress)}%</span>
-        </div>
-        <div className="w-full bg-gray-200 rounded-full h-2">
-          <div 
-            className="bg-primary-600 h-2 rounded-full transition-all duration-300 ease-out"
-            style={{ width: `${progress}%` }}
-          />
-        </div>
-      </div>
-
-      {/* Operations Checklist */}
-      {allOperations.length > 0 && (
-        <div className="bg-gray-50 rounded-lg p-4">
-          <h4 className="text-sm font-medium text-gray-700 mb-3">
-            {type === 'parsing' ? 'Parsing Steps' : 'Analysis Dimensions'}
-          </h4>
-          <div className="space-y-2">
-            {allOperations.map((operation, index) => (
+    <div className="fixed inset-0 z-50 flex items-center justify-center">
+      {/* Semi-transparent backdrop */}
+      <div className="absolute inset-0 bg-black/20" style={{ backdropFilter: 'blur(2px)' }} />
+      
+      {/* Floating progress card */}
+      <div className="relative bg-white rounded-lg shadow-2xl border border-gray-200 p-8 max-w-md w-full mx-4">
+        <div className="flex flex-col items-center space-y-4">
+          {/* Spinner Icon */}
+          <div className="relative">
+            <Compass className="h-10 w-10 text-primary-600 animate-spin" />
+            <div className="absolute inset-0 h-10 w-10 bg-primary-600 opacity-20 rounded-full animate-ping" />
+          </div>
+          
+          {/* Status Text */}
+          <div className="text-center">
+            <p className="text-lg font-medium text-gray-900 transition-all duration-300">
+              {currentOperation ? (
+                <>
+                  {actionVerb} {formatter(currentOperation)}...
+                </>
+              ) : (
+                <>
+                  {type === 'parsing' ? 'Preparing to parse resume' : 'Preparing analysis'}...
+                </>
+              )}
+            </p>
+          </div>
+          
+          {/* Progress Bar */}
+          <div className="w-full">
+            <div className="w-full bg-gray-200 rounded-full h-1.5 overflow-hidden">
               <div 
-                key={`${operation.name}-${index}`}
-                className="flex items-center space-x-2"
+                className="bg-primary-600 h-full rounded-full transition-all duration-500 ease-out relative"
+                style={{ width: `${progress}%` }}
               >
-                {operation.status === 'completed' && (
-                  <>
-                    <CheckCircle className="h-4 w-4 text-success-600 flex-shrink-0" />
-                    <span className="text-sm text-gray-700 line-through">
-                      {formatter(operation.name)}
-                    </span>
-                  </>
-                )}
-                {operation.status === 'in_progress' && (
-                  <>
-                    <Loader2 className="h-4 w-4 text-primary-600 animate-spin flex-shrink-0" />
-                    <span className="text-sm font-medium text-primary-700">
-                      {formatter(operation.name)}
-                    </span>
-                  </>
-                )}
-                {operation.status === 'pending' && (
-                  <>
-                    <Circle className="h-4 w-4 text-gray-400 flex-shrink-0" />
-                    <span className="text-sm text-gray-500">
-                      {formatter(operation.name)}
-                    </span>
-                  </>
-                )}
+                {/* Shimmer effect */}
+                <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/30 to-transparent animate-shimmer" />
               </div>
-            ))}
+            </div>
+            <p className="text-center mt-2 text-sm text-gray-500">
+              {Math.round(progress)}% complete
+            </p>
           </div>
         </div>
-      )}
+      </div>
     </div>
   );
 }

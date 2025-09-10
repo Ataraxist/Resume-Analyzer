@@ -24,6 +24,7 @@ function OccupationDetails({ occupation, onLoadComplete }) {
           onLoadComplete();
         }
       } catch (error) {
+        console.error('Failed to fetch occupation details:', error);
         // Still call onLoadComplete even on error so button becomes enabled
         if (onLoadComplete) {
           onLoadComplete();
