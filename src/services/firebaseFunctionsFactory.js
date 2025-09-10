@@ -61,7 +61,7 @@ class FirebaseFunctionsFactory {
     // Trigger initialization but don't wait (non-blocking)
     // This allows the app to continue loading while ensuring init happens
     this.ensureInitialized().catch(error => {
-      // Failed to initialize Firebase Functions Factory
+      console.error('Failed to initialize Firebase Functions Factory:', error);
     });
 
     // Check if we already have this callable cached
@@ -72,28 +72,21 @@ class FirebaseFunctionsFactory {
         
         // Create a wrapper for the callable function
         const wrappedCallable = async (data) => {
-          try {
-            const result = await callable(data);
-            return result;
-          } catch (error) {
-            throw error;
-          }
+          const result = await callable(data);
+          return result;
         };
         
         // Add the native stream method if it exists on the callable
         if (callable.stream) {
           wrappedCallable.stream = async (data) => {
-            try {
-              const result = await callable.stream(data);
-              return result;
-            } catch (error) {
-              throw error;
-            }
+            const result = await callable.stream(data);
+            return result;
           };
         }
         
         this._callables.set(functionName, wrappedCallable);
       } catch (error) {
+        console.error(`Failed to initialize function ${functionName}:`, error);
         // Return a function that will throw when called
         return () => {
           throw new Error(`Failed to initialize function: ${functionName}`);

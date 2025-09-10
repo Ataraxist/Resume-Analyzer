@@ -81,197 +81,169 @@ class FirebaseAnalysisService {
 
   // Get all analyses for current user
   async getUserAnalyses(userId) {
-    try {
-      const q = query(
-        collection(db, this.collectionName),
-        where('userId', '==', userId),
-        orderBy('createdAt', 'desc')
-      );
-      
-      const snapshot = await getDocs(q);
-      const analyses = [];
-      
-      snapshot.forEach((doc) => {
-        analyses.push({
-          id: doc.id,
-          ...doc.data()
-        });
+    const q = query(
+      collection(db, this.collectionName),
+      where('userId', '==', userId),
+      orderBy('createdAt', 'desc')
+    );
+    
+    const snapshot = await getDocs(q);
+    const analyses = [];
+    
+    snapshot.forEach((doc) => {
+      analyses.push({
+        id: doc.id,
+        ...doc.data()
       });
-      
-      return analyses;
-    } catch (error) {
-      throw error;
-    }
+    });
+    
+    return analyses;
   }
 
   // Get analyses for a specific resume
   async getResumeAnalyses(resumeId) {
-    try {
-      const q = query(
-        collection(db, this.collectionName),
-        where('resumeId', '==', resumeId),
-        orderBy('overallFitScore', 'desc')
-      );
-      
-      const snapshot = await getDocs(q);
-      const analyses = [];
-      
-      snapshot.forEach((doc) => {
-        analyses.push({
-          id: doc.id,
-          ...doc.data()
-        });
+    const q = query(
+      collection(db, this.collectionName),
+      where('resumeId', '==', resumeId),
+      orderBy('overallFitScore', 'desc')
+    );
+    
+    const snapshot = await getDocs(q);
+    const analyses = [];
+    
+    snapshot.forEach((doc) => {
+      analyses.push({
+        id: doc.id,
+        ...doc.data()
       });
-      
-      return analyses;
-    } catch (error) {
-      throw error;
-    }
+    });
+    
+    return analyses;
   }
 
   // Get single analysis by ID
   async getAnalysisById(analysisId) {
-    try {
-      const docRef = doc(db, this.collectionName, analysisId);
-      const docSnap = await getDoc(docRef);
-      
-      if (docSnap.exists()) {
-        return {
-          id: docSnap.id,
-          ...docSnap.data()
-        };
-      } else {
-        throw new Error('Analysis not found');
-      }
-    } catch (error) {
-      throw error;
+    const docRef = doc(db, this.collectionName, analysisId);
+    const docSnap = await getDoc(docRef);
+    
+    if (docSnap.exists()) {
+      return {
+        id: docSnap.id,
+        ...docSnap.data()
+      };
+    } else {
+      throw new Error('Analysis not found');
     }
   }
 
   // Get top matches for a resume
   async getTopMatches(resumeId, limitCount = 5) {
-    try {
-      const q = query(
-        collection(db, this.collectionName),
-        where('resumeId', '==', resumeId),
-        orderBy('overallFitScore', 'desc'),
-        limit(limitCount)
-      );
-      
-      const snapshot = await getDocs(q);
-      const matches = [];
-      
-      snapshot.forEach((doc) => {
-        const data = doc.data();
-        matches.push({
-          id: doc.id,
-          occupationCode: data.occupationCode,
-          occupationTitle: data.occupationTitle,
-          score: data.overallFitScore,
-          fitCategory: data.fitCategory,
-          ...data
-        });
+    const q = query(
+      collection(db, this.collectionName),
+      where('resumeId', '==', resumeId),
+      orderBy('overallFitScore', 'desc'),
+      limit(limitCount)
+    );
+    
+    const snapshot = await getDocs(q);
+    const matches = [];
+    
+    snapshot.forEach((doc) => {
+      const data = doc.data();
+      matches.push({
+        id: doc.id,
+        occupationCode: data.occupationCode,
+        occupationTitle: data.occupationTitle,
+        score: data.overallFitScore,
+        fitCategory: data.fitCategory,
+        ...data
       });
-      
-      return matches;
-    } catch (error) {
-      throw error;
-    }
+    });
+    
+    return matches;
   }
 
   // Delete analysis
   async deleteAnalysis(analysisId, userId) {
-    try {
-      // Get analysis to check ownership
-      const analysisDoc = await this.getAnalysisById(analysisId);
-      
-      if (analysisDoc.userId !== userId) {
-        throw new Error('Unauthorized to delete this analysis');
-      }
-      
-      // Delete from Firestore
-      await deleteDoc(doc(db, this.collectionName, analysisId));
-      
-      return { success: true, message: 'Analysis deleted successfully' };
-    } catch (error) {
-      throw error;
+    // Get analysis to check ownership
+    const analysisDoc = await this.getAnalysisById(analysisId);
+    
+    if (analysisDoc.userId !== userId) {
+      throw new Error('Unauthorized to delete this analysis');
     }
+    
+    // Delete from Firestore
+    await deleteDoc(doc(db, this.collectionName, analysisId));
+    
+    return { success: true, message: 'Analysis deleted successfully' };
   }
 
   // Get recent analyses
   async getRecentAnalyses(userId, limitCount = 10) {
-    try {
-      const q = query(
-        collection(db, this.collectionName),
-        where('userId', '==', userId),
-        orderBy('createdAt', 'desc'),
-        limit(limitCount)
-      );
-      
-      const snapshot = await getDocs(q);
-      const analyses = [];
-      
-      snapshot.forEach((doc) => {
-        analyses.push({
-          id: doc.id,
-          ...doc.data()
-        });
+    const q = query(
+      collection(db, this.collectionName),
+      where('userId', '==', userId),
+      orderBy('createdAt', 'desc'),
+      limit(limitCount)
+    );
+    
+    const snapshot = await getDocs(q);
+    const analyses = [];
+    
+    snapshot.forEach((doc) => {
+      analyses.push({
+        id: doc.id,
+        ...doc.data()
       });
-      
-      return analyses;
-    } catch (error) {
-      throw error;
-    }
+    });
+    
+    return analyses;
   }
 
 
   // Get analysis statistics for user
   async getUserStatistics(userId) {
-    try {
-      const analyses = await this.getUserAnalyses(userId);
-      
-      if (analyses.length === 0) {
-        return {
-          totalAnalyses: 0,
-          averageScore: 0,
-          topOccupation: null,
-          scoreDistribution: {}
-        };
-      }
-      
-      // Calculate statistics
-      const totalScore = analyses.reduce((sum, a) => sum + (a.overallFitScore || 0), 0);
-      const averageScore = Math.round(totalScore / analyses.length);
-      
-      // Find top occupation
-      const occupationCounts = {};
-      analyses.forEach(a => {
-        if (a.occupationTitle) {
-          occupationCounts[a.occupationTitle] = (occupationCounts[a.occupationTitle] || 0) + 1;
-        }
-      });
-      
-      const topOccupation = Object.entries(occupationCounts)
-        .sort((a, b) => b[1] - a[1])[0];
-      
-      // Score distribution
-      const scoreDistribution = {
-        excellent: analyses.filter(a => a.overallFitScore >= 85).length,
-        strong: analyses.filter(a => a.overallFitScore >= 70 && a.overallFitScore < 85).length,
-        good: analyses.filter(a => a.overallFitScore >= 55 && a.overallFitScore < 70).length,
-        moderate: analyses.filter(a => a.overallFitScore >= 40 && a.overallFitScore < 55).length,
-        developing: analyses.filter(a => a.overallFitScore < 40).length
-      };
-      
+    const analyses = await this.getUserAnalyses(userId);
+    
+    if (analyses.length === 0) {
       return {
-        totalAnalyses: analyses.length,
-        averageScore,
-        topOccupation: topOccupation ? topOccupation[0] : null,
-        scoreDistribution
+        totalAnalyses: 0,
+        averageScore: 0,
+        topOccupation: null,
+        scoreDistribution: {}
       };
-    } catch (error) {
-      throw error;
     }
+    
+    // Calculate statistics
+    const totalScore = analyses.reduce((sum, a) => sum + (a.overallFitScore || 0), 0);
+    const averageScore = Math.round(totalScore / analyses.length);
+    
+    // Find top occupation
+    const occupationCounts = {};
+    analyses.forEach(a => {
+      if (a.occupationTitle) {
+        occupationCounts[a.occupationTitle] = (occupationCounts[a.occupationTitle] || 0) + 1;
+      }
+    });
+    
+    const topOccupation = Object.entries(occupationCounts)
+      .sort((a, b) => b[1] - a[1])[0];
+    
+    // Score distribution
+    const scoreDistribution = {
+      excellent: analyses.filter(a => a.overallFitScore >= 85).length,
+      strong: analyses.filter(a => a.overallFitScore >= 70 && a.overallFitScore < 85).length,
+      good: analyses.filter(a => a.overallFitScore >= 55 && a.overallFitScore < 70).length,
+      moderate: analyses.filter(a => a.overallFitScore >= 40 && a.overallFitScore < 55).length,
+      developing: analyses.filter(a => a.overallFitScore < 40).length
+    };
+    
+    return {
+      totalAnalyses: analyses.length,
+      averageScore,
+      topOccupation: topOccupation ? topOccupation[0] : null,
+      scoreDistribution
+    };
   }
 }
 

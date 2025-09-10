@@ -49,7 +49,7 @@ class FirebaseOccupationService {
       if (daysSinceSync > this.SYNC_STALE_DAYS) {
         this.triggerBackgroundSync();
       }
-    } catch (error) {
+    } catch {
       // Don't block the user experience if sync check fails
     }
   }
@@ -61,10 +61,10 @@ class FirebaseOccupationService {
       const fetchOccupationsListFunction = FirebaseFunctionsFactory.getCallable('fetchOccupationsListFunction');
       
       // Fire and forget - don't await
-      fetchOccupationsListFunction().catch(err => {
+      fetchOccupationsListFunction().catch(() => {
         // Background sync failed silently
       });
-    } catch (error) {
+    } catch {
       // Error triggering background sync
     }
   }
@@ -75,100 +75,88 @@ class FirebaseOccupationService {
     // Check sync status on first search (non-blocking)
     this.checkAndSyncIfNeeded();
     
-    try {
-      // Get the callable function from the factory
-      const searchOccupationsFunction = FirebaseFunctionsFactory.getCallable('searchOccupationsFunction');
-      
-      const payload = {
-        query: searchQuery,
-        limit: limitCount,
-        offset,
-        filters
-      };
-      
-      const result = await searchOccupationsFunction(payload);
-      
-      return result.data;
-    } catch (error) {
-      throw error;
-    }
+    // Get the callable function from the factory
+    const searchOccupationsFunction = FirebaseFunctionsFactory.getCallable('searchOccupationsFunction');
+    
+    const payload = {
+      query: searchQuery,
+      limit: limitCount,
+      offset,
+      filters
+    };
+    
+    const result = await searchOccupationsFunction(payload);
+    
+    return result.data;
   }
 
   // Get all occupations (with pagination)
   async getAllOccupations(limitCount = 50, lastDoc = null) {
-    try {
-      let q = query(
+    let q = query(
+      collection(db, this.collectionName),
+      orderBy('title'),
+      limit(limitCount)
+    );
+    
+    if (lastDoc) {
+      q = query(
         collection(db, this.collectionName),
         orderBy('title'),
+        startAfter(lastDoc),
         limit(limitCount)
       );
-      
-      if (lastDoc) {
-        q = query(
-          collection(db, this.collectionName),
-          orderBy('title'),
-          startAfter(lastDoc),
-          limit(limitCount)
-        );
-      }
-      
-      const snapshot = await getDocs(q);
-      const occupations = [];
-      let lastVisible = null;
-      
-      snapshot.forEach((doc) => {
-        occupations.push({
-          id: doc.id,
-          code: doc.id,
-          ...doc.data()
-        });
-        lastVisible = doc;
-      });
-      
-      return {
-        occupations,
-        lastDoc: lastVisible,
-        hasMore: snapshot.docs.length === limitCount
-      };
-    } catch (error) {
-      throw error;
     }
+    
+    const snapshot = await getDocs(q);
+    const occupations = [];
+    let lastVisible = null;
+    
+    snapshot.forEach((doc) => {
+      occupations.push({
+        id: doc.id,
+        code: doc.id,
+        ...doc.data()
+      });
+      lastVisible = doc;
+    });
+    
+    return {
+      occupations,
+      lastDoc: lastVisible,
+      hasMore: snapshot.docs.length === limitCount
+    };
   }
 
   // Get single occupation by code
   async getOccupationByCode(occupationCode) {
-    try {
-      // Check cache first
-      const cacheKey = `occupation_${occupationCode}`;
-      const cached = this.cache.get(cacheKey);
+    // Check cache first
+    const cacheKey = `occupation_${occupationCode}`;
+    const cached = this.cache.get(cacheKey);
+    
+    if (cached && Date.now() - cached.timestamp < this.cacheTimeout) {
+      return cached.data;
+    }
+    
+    // Fetch from Firestore
+    const docRef = doc(db, this.collectionName, occupationCode);
+    const docSnap = await getDoc(docRef);
+    
+    if (docSnap.exists()) {
+      const occupationData = {
+        id: docSnap.id,
+        code: docSnap.id,
+        ...docSnap.data()
+      };
       
-      if (cached && Date.now() - cached.timestamp < this.cacheTimeout) {
-        return cached.data;
-      }
+      // Cache the result
+      this.cache.set(cacheKey, {
+        data: occupationData,
+        timestamp: Date.now()
+      });
       
-      // Fetch from Firestore
-      const docRef = doc(db, this.collectionName, occupationCode);
-      const docSnap = await getDoc(docRef);
-      
-      if (docSnap.exists()) {
-        const occupationData = {
-          id: docSnap.id,
-          code: docSnap.id,
-          ...docSnap.data()
-        };
-        
-        // Cache the result
-        this.cache.set(cacheKey, {
-          data: occupationData,
-          timestamp: Date.now()
-        });
-        
-        return occupationData;
-      } else {
-        throw new Error(`Occupation not found: ${occupationCode}`);
-      }
-    } catch (error) {
-      throw error;
+      return occupationData;
+    } else {
+      throw new Error(`Occupation not found: ${occupationCode}`);
     }
   }
 
@@ -209,7 +197,7 @@ class FirebaseOccupationService {
       });
       
       return occupations;
-    } catch (error) {
+    } catch {
       // Return a fallback set if the fetch fails
       return [
         { code: '15-1252', title: 'Software Developers' },
@@ -238,7 +226,7 @@ class FirebaseOccupationService {
         return jobZoneDoc.data();
       }
       return null;
-    } catch (error) {
+    } catch {
       return null;
     }
   }
@@ -332,7 +320,7 @@ class FirebaseOccupationService {
           bright_outlook: occupation.bright_outlook,
           jobZone: null
         };
-      } catch (fallbackError) {
+      } catch {
         throw error;
       }
     }
@@ -347,56 +335,48 @@ class FirebaseOccupationService {
 
   // Get bright outlook occupations
   async getBrightOutlookOccupations(limitCount = 20) {
-    try {
-      const q = query(
-        collection(db, this.collectionName),
-        where('bright_outlook', '==', true),
-        orderBy('title'),
-        limit(limitCount)
-      );
-      
-      const snapshot = await getDocs(q);
-      const occupations = [];
-      
-      snapshot.forEach((doc) => {
-        occupations.push({
-          id: doc.id,
-          code: doc.id,
-          ...doc.data()
-        });
+    const q = query(
+      collection(db, this.collectionName),
+      where('bright_outlook', '==', true),
+      orderBy('title'),
+      limit(limitCount)
+    );
+    
+    const snapshot = await getDocs(q);
+    const occupations = [];
+    
+    snapshot.forEach((doc) => {
+      occupations.push({
+        id: doc.id,
+        code: doc.id,
+        ...doc.data()
       });
-      
-      return occupations;
-    } catch (error) {
-      throw error;
-    }
+    });
+    
+    return occupations;
   }
 
   // Get rapid growth occupations
   async getRapidGrowthOccupations(limitCount = 20) {
-    try {
-      const q = query(
-        collection(db, this.collectionName),
-        where('rapid_growth', '==', true),
-        orderBy('title'),
-        limit(limitCount)
-      );
-      
-      const snapshot = await getDocs(q);
-      const occupations = [];
-      
-      snapshot.forEach((doc) => {
-        occupations.push({
-          id: doc.id,
-          code: doc.id,
-          ...doc.data()
-        });
+    const q = query(
+      collection(db, this.collectionName),
+      where('rapid_growth', '==', true),
+      orderBy('title'),
+      limit(limitCount)
+    );
+    
+    const snapshot = await getDocs(q);
+    const occupations = [];
+    
+    snapshot.forEach((doc) => {
+      occupations.push({
+        id: doc.id,
+        code: doc.id,
+        ...doc.data()
       });
-      
-      return occupations;
-    } catch (error) {
-      throw error;
-    }
+    });
+    
+    return occupations;
   }
 
   // Search with debounce functionality

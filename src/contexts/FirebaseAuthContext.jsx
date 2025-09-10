@@ -56,7 +56,7 @@ export const FirebaseAuthProvider = ({ children }) => {
             setUserData(anonymousUserData);
           }
         } catch (error) {
-          // Error fetching user data
+          console.error('Error fetching user data:', error);
         }
       } else {
         // No user signed in - do NOT auto-create anonymous sessions

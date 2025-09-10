@@ -1,15 +1,8 @@
-import { 
-  collection, 
-  query, 
-  where, 
-  getDocs, 
-  writeBatch,
-  doc 
-} from 'firebase/firestore';
-import { db } from '../config/firebase';
+import FirebaseFunctionsFactory from './firebaseFunctionsFactory';
 
 /**
  * Migrate data from an anonymous user to an authenticated user
+ * Now uses a Cloud Function to bypass security rules
  * @param {string} fromUid - The anonymous user's UID
  * @param {string} toUid - The authenticated user's UID
  * @returns {Promise<{success: boolean, migratedCount: number, error?: string}>}
@@ -19,53 +12,31 @@ export const migrateAnonymousData = async (fromUid, toUid) => {
     return { success: false, migratedCount: 0, error: 'Missing UID parameters' };
   }
 
-  
   try {
-    const batch = writeBatch(db);
-    let migratedCount = 0;
+    // Get the Cloud Function
+    const migrateFunction = FirebaseFunctionsFactory.getCallable('migrateAnonymousDataFunction');
     
-    // Migrate resumes
-    const resumesQuery = query(
-      collection(db, 'resumes'), 
-      where('userId', '==', fromUid)
-    );
-    const resumesSnapshot = await getDocs(resumesQuery);
+    // Call the Cloud Function
+    const result = await migrateFunction({ fromUid, toUid });
     
-    resumesSnapshot.forEach((docSnapshot) => {
-      batch.update(doc(db, 'resumes', docSnapshot.id), {
-        userId: toUid,
-        migratedFrom: fromUid,
-        migratedAt: new Date().toISOString()
-      });
-      migratedCount++;
-    });
-    
-    // Migrate analyses
-    const analysesQuery = query(
-      collection(db, 'analyses'), 
-      where('userId', '==', fromUid)
-    );
-    const analysesSnapshot = await getDocs(analysesQuery);
-    
-    analysesSnapshot.forEach((docSnapshot) => {
-      batch.update(doc(db, 'analyses', docSnapshot.id), {
-        userId: toUid,
-        migratedFrom: fromUid,
-        migratedAt: new Date().toISOString()
-      });
-      migratedCount++;
-    });
-    
-    // Commit all updates in a single batch
-    if (migratedCount > 0) {
-      await batch.commit();
+    if (result.data.success) {
+      // Clear the stored anonymous UID from sessionStorage
+      sessionStorage.removeItem('anonymousUid');
+      
+      return {
+        success: true,
+        migratedCount: result.data.migratedCount,
+        details: result.data.details
+      };
+    } else {
+      return {
+        success: false,
+        migratedCount: 0,
+        error: result.data.error || 'Migration failed'
+      };
     }
-    
-    // Clear the stored anonymous UID from sessionStorage
-    sessionStorage.removeItem('anonymousUid');
-    
-    return { success: true, migratedCount };
   } catch (error) {
+    console.error('Migration error:', error);
     return { 
       success: false, 
       migratedCount: 0, 
@@ -91,6 +62,7 @@ export const clearPendingAnonymousData = () => {
 
 /**
  * Check if a user has any data to migrate
+ * Now uses a Cloud Function to bypass security rules
  * @param {string} anonymousUid - The anonymous user's UID
  * @returns {Promise<{hasData: boolean, resumeCount: number, analysisCount: number}>}
  */
@@ -100,29 +72,20 @@ export const checkAnonymousData = async (anonymousUid) => {
   }
   
   try {
-    // Check resumes
-    const resumesQuery = query(
-      collection(db, 'resumes'), 
-      where('userId', '==', anonymousUid)
-    );
-    const resumesSnapshot = await getDocs(resumesQuery);
+    // Get the Cloud Function
+    const checkFunction = FirebaseFunctionsFactory.getCallable('checkAnonymousDataFunction');
     
-    // Check analyses
-    const analysesQuery = query(
-      collection(db, 'analyses'), 
-      where('userId', '==', anonymousUid)
-    );
-    const analysesSnapshot = await getDocs(analysesQuery);
-    
-    const resumeCount = resumesSnapshot.size;
-    const analysisCount = analysesSnapshot.size;
+    // Call the Cloud Function
+    const result = await checkFunction({ anonymousUid });
     
     return {
-      hasData: resumeCount > 0 || analysisCount > 0,
-      resumeCount,
-      analysisCount
+      hasData: result.data.hasData,
+      resumeCount: result.data.resumeCount,
+      analysisCount: result.data.analysisCount
     };
   } catch (error) {
+    console.error('Failed to check for existing data:', error);
+    // Return false to allow login to continue even if check fails
     return { hasData: false, resumeCount: 0, analysisCount: 0 };
   }
 };

@@ -28,13 +28,13 @@ export function formatFieldName(fieldName) {
 export function formatDimensionName(dimensionName) {
   const dimensionMappings = {
     'tasks': 'Job Tasks',
-    'skills': 'Required Skills',
-    'abilities': 'Core Abilities',
-    'knowledge': 'Knowledge Areas',
-    'workActivities': 'Work Activities',
-    'tools': 'Tools & Technology',
+    'skills': 'Core Skills',
     'technologySkills': 'Technology Skills',
-    'education': 'Education Requirements'
+    'education': 'Education',
+    'tools': 'Tools & Software',
+    'workActivities': 'Work Activities',
+    'abilities': 'Abilities',
+    'knowledge': 'Knowledge Areas'
   };
 
   return dimensionMappings[dimensionName] || 

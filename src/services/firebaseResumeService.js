@@ -280,7 +280,7 @@ class FirebaseResumeService {
         try {
           await deleteObject(storageRef);
         } catch (storageError) {
-          // Could not delete file from storage
+          console.error('Could not delete file from storage:', storageError);
         }
       }
       
