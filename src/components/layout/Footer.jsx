@@ -6,7 +6,25 @@ function Footer() {
       <div className="container mx-auto px-4 py-6">
         <div className="flex justify-center">
           <div className="text-sm text-gray-600">
-            © {currentYear} Rubic Systems. Powered by O*NET Database.
+            © {currentYear}{' '}
+            <a 
+              href="https://rubicsystems.com" 
+              target="_blank" 
+              rel="noopener noreferrer"
+              className="hover:text-blue-600 transition-colors"
+            >
+              Rubic Systems
+            </a>
+            . Powered by{' '}
+            <a 
+              href="https://www.onetonline.org/" 
+              target="_blank" 
+              rel="noopener noreferrer"
+              className="hover:text-blue-600 transition-colors"
+            >
+              O*NET Database
+            </a>
+            .
           </div>
         </div>
       </div>
