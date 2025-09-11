@@ -30,10 +30,25 @@ export const db = getFirestore(app);
 export const functions = getFunctions(app, 'us-central1');
 export const storage = getStorage(app);
 
-// Initialize Analytics (only in production)
-export const analytics = !import.meta.env.DEV && firebaseConfig.measurementId 
-  ? getAnalytics(app) 
-  : null;
+// Initialize Analytics (only in production, with error handling)
+let analytics = null;
+
+// Only initialize analytics if in production and measurementId exists
+if (!import.meta.env.DEV && firebaseConfig.measurementId) {
+  // Use defensive initialization to avoid blocking app startup
+  try {
+    // Check if analytics is supported in this browser
+    if (typeof window !== 'undefined' && window.document) {
+      analytics = getAnalytics(app);
+    }
+  } catch (error) {
+    // Log error but don't crash the app
+    console.warn('Analytics initialization failed. This will not affect app functionality.', error);
+    // Analytics will remain null, which is fine
+  }
+}
+
+export { analytics };
 
 // Connect to emulators in development
 if (import.meta.env.DEV) {

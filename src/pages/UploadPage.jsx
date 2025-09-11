@@ -89,13 +89,29 @@ function UploadPage() {
         currentUser.uid,
         (chunk) => {
           // Handle different types of streaming chunks
-          if (chunk.type === 'stream_started') {
+          if (chunk.type === 'processing_request') {
+            // Request received by server
+            setParseProgress(chunk.progress || 2);
+            setCurrentParsingField(chunk.message || 'Processing your request...');
+          } else if (chunk.type === 'loading_document') {
+            // Loading document from storage
+            setParseProgress(chunk.progress || 3);
+            setCurrentParsingField(chunk.message || 'Loading your document...');
+          } else if (chunk.type === 'reading_content') {
+            // Reading document content
+            setParseProgress(chunk.progress || 4);
+            setCurrentParsingField(chunk.message || 'Reading document content...');
+          } else if (chunk.type === 'preparing_analysis') {
+            // Preparing for AI analysis
+            setParseProgress(chunk.progress || 5);
+            setCurrentParsingField(chunk.message || 'Preparing document for AI analysis...');
+          } else if (chunk.type === 'stream_started') {
             // Stream has started, show initial feedback
-            setParseProgress(5);
+            setParseProgress(6);
             setCurrentParsingField('Getting things ready...');
           } else if (chunk.type === 'initializing') {
             // Parser is initializing
-            setParseProgress(chunk.progress || 5);
+            setParseProgress(chunk.progress || 6);
             setCurrentParsingField(chunk.message || 'Getting things ready...');
           } else if (chunk.type === 'connecting') {
             // Connecting to AI service
@@ -235,13 +251,29 @@ function UploadPage() {
         null,
         (chunk) => {
           // Handle different types of streaming chunks
-          if (chunk.type === 'stream_started') {
+          if (chunk.type === 'processing_request') {
+            // Request received by server
+            setParseProgress(chunk.progress || 2);
+            setCurrentParsingField(chunk.message || 'Processing your request...');
+          } else if (chunk.type === 'loading_document') {
+            // Loading document from storage
+            setParseProgress(chunk.progress || 3);
+            setCurrentParsingField(chunk.message || 'Loading your document...');
+          } else if (chunk.type === 'reading_content') {
+            // Reading document content
+            setParseProgress(chunk.progress || 4);
+            setCurrentParsingField(chunk.message || 'Reading document content...');
+          } else if (chunk.type === 'preparing_analysis') {
+            // Preparing for AI analysis
+            setParseProgress(chunk.progress || 5);
+            setCurrentParsingField(chunk.message || 'Preparing document for AI analysis...');
+          } else if (chunk.type === 'stream_started') {
             // Stream has started, show initial feedback
-            setParseProgress(5);
+            setParseProgress(6);
             setCurrentParsingField('Getting things ready...');
           } else if (chunk.type === 'initializing') {
             // Parser is initializing
-            setParseProgress(chunk.progress || 5);
+            setParseProgress(chunk.progress || 6);
             setCurrentParsingField(chunk.message || 'Getting things ready...');
           } else if (chunk.type === 'connecting') {
             // Connecting to AI service

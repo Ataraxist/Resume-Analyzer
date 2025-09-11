@@ -51,6 +51,13 @@ async function resume(request, response) {
     throw new HttpsError('invalid-argument', 'fileName is required for text input');
   }
 
+  // Send immediate acknowledgment that request was received
+  response.sendChunk({
+    type: 'processing_request',
+    message: 'Processing your request...',
+    progress: 2
+  });
+
   try {
     // Handle different input types
     switch (inputType) {
@@ -70,8 +77,8 @@ async function resume(request, response) {
           throw new HttpsError('invalid-argument', 'File path is required for file input');
         }
         
-        // Extract text from file in storage
-        textToParse = await extractFromStorage(filePath);
+        // Extract text from file in storage (pass response for streaming)
+        textToParse = await extractFromStorage(filePath, response);
         
         // Use filename from path if not provided
         if (!fileName) {
@@ -121,6 +128,12 @@ async function resume(request, response) {
       throw new HttpsError('invalid-argument', 'No text content found to parse');
     }
 
+    // Send progress update before AI analysis
+    response.sendChunk({
+      type: 'preparing_analysis',
+      message: 'Preparing document for AI analysis...',
+      progress: 5
+    });
 
     // Define the streaming callback that always sends chunks to the client
     const streamCallback = (chunkData) => {

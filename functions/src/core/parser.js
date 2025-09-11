@@ -962,7 +962,7 @@ async function parseResumeWithStreaming(
       streamCallback({ 
         type: 'initializing', 
         message: 'Getting things ready...', 
-        progress: 5 
+        progress: 6 
       });
     }
 
