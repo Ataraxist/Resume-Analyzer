@@ -3,29 +3,55 @@ import { createContext, useContext, useEffect, useState } from 'react';
 const ThemeContext = createContext();
 
 export function ThemeProvider({ children }) {
+  // Track whether user has explicitly set a preference
+  const [userThemePreference, setUserThemePreference] = useState(() => {
+    return localStorage.getItem('theme');
+  });
+
   const [isDarkMode, setIsDarkMode] = useState(() => {
-    // Check localStorage for saved preference
+    // If user has a saved preference, use that
     const savedTheme = localStorage.getItem('theme');
     if (savedTheme) {
       return savedTheme === 'dark';
     }
-    // Check system preference
+    // Otherwise, use system preference
     return window.matchMedia('(prefers-color-scheme: dark)').matches;
   });
 
   useEffect(() => {
-    // Update document class and localStorage when theme changes
+    // Function to handle system theme changes
+    const handleSystemThemeChange = (e) => {
+      // Only update if user hasn't set their own preference
+      if (!userThemePreference) {
+        setIsDarkMode(e.matches);
+      }
+    };
+
+    // Listen for system theme changes
+    const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
+    mediaQuery.addEventListener('change', handleSystemThemeChange);
+
+    return () => {
+      mediaQuery.removeEventListener('change', handleSystemThemeChange);
+    };
+  }, [userThemePreference]);
+
+  useEffect(() => {
+    // Update document class based on isDarkMode
     if (isDarkMode) {
       document.documentElement.classList.add('dark');
-      localStorage.setItem('theme', 'dark');
     } else {
       document.documentElement.classList.remove('dark');
-      localStorage.setItem('theme', 'light');
     }
   }, [isDarkMode]);
 
   const toggleDarkMode = () => {
-    setIsDarkMode(prev => !prev);
+    const newTheme = !isDarkMode;
+    setIsDarkMode(newTheme);
+    // Save user preference when they explicitly toggle
+    const themeToSave = newTheme ? 'dark' : 'light';
+    localStorage.setItem('theme', themeToSave);
+    setUserThemePreference(themeToSave);
   };
 
   return (

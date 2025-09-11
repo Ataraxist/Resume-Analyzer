@@ -1,5 +1,5 @@
 import { Link } from 'react-router-dom';
-import { useState } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { Compass, User, LogOut, ChevronDown, History, Moon, Sun } from 'lucide-react';
 import { useAuth } from '../../contexts/FirebaseAuthContext';
 import { useTheme } from '../../contexts/ThemeContext';
@@ -10,6 +10,24 @@ function Header() {
   const { isDarkMode, toggleDarkMode } = useTheme();
   const [showUserMenu, setShowUserMenu] = useState(false);
   const [showAuthModal, setShowAuthModal] = useState(false);
+  const dropdownRef = useRef(null);
+  
+  // Close dropdown when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
+        setShowUserMenu(false);
+      }
+    };
+    
+    if (showUserMenu) {
+      document.addEventListener('mousedown', handleClickOutside);
+    }
+    
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [showUserMenu]);
   
   const handleLogout = () => {
     logout();
@@ -28,7 +46,7 @@ function Header() {
           {/* User Menu */}
           <div className="flex items-center space-x-4">
             {/* Profile Icon Dropdown - Always Visible */}
-            <div className="relative">
+            <div className="relative" ref={dropdownRef}>
               <button
                 onClick={() => setShowUserMenu(!showUserMenu)}
                 className="flex items-center space-x-2 px-3 py-2 rounded-md text-sm font-medium text-gray-600 dark:text-gray-300 hover:text-primary-600 dark:hover:text-primary-400 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
@@ -92,7 +110,10 @@ function Header() {
                     </button>
                   ) : (
                     <button
-                      onClick={handleLogout}
+                      onClick={() => {
+                        handleLogout();
+                        setShowUserMenu(false);
+                      }}
                       className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-700"
                     >
                       <span className="flex items-center">
