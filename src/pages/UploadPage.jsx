@@ -2,11 +2,13 @@ import { useState, useEffect } from 'react';
 import { useNavigate, useLocation, Link } from 'react-router-dom';
 import ResumeUpload from '../components/resume/ResumeUpload';
 import ProcessingStatus from '../components/resume/ProcessingStatus';
-import ResumeViewer from '../components/resume/ResumeViewer';
+import ResumeViewer from '../components/resume-viewer/ResumeViewer';
 import PreviousResumes from '../components/resume/PreviousResumes';
 import StreamingStatusDisplay from '../components/common/StreamingStatusDisplay';
+import FloatingEditButton from '../components/common/FloatingEditButton';
 import firebaseResumeService from '../services/firebaseResumeService';
 import { useAuth } from '../contexts/FirebaseAuthContext';
+import { useEditMode } from '../contexts/EditModeContext';
 import { getExpectedParsingFields } from '../utils/statusFormatters';
 import toastService from '../services/toastService';
 import { logError } from '../utils/errorHandler';
@@ -16,6 +18,7 @@ function UploadPage() {
   const navigate = useNavigate();
   const location = useLocation();
   const { user, createAnonymousSession } = useAuth();
+  const { isEditMode } = useEditMode();
   const [selectedOccupation, setSelectedOccupation] = useState(null);
   const [resumeId, setResumeId] = useState(null);
   const [processingStatus, setProcessingStatus] = useState(null);
@@ -452,7 +455,15 @@ function UploadPage() {
           </div>
           
           {/* Full-width resume viewer */}
-          <ResumeViewer data={structuredData} resumeId={resumeId} editable={true} />
+          <ResumeViewer 
+            data={structuredData} 
+            resumeId={resumeId} 
+            editable={isEditMode}
+            isLoading={processingStatus === 'processing'}
+          />
+          
+          {/* Floating Edit Mode Toggle */}
+          <FloatingEditButton />
         </div>
       )}
     </>

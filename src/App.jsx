@@ -2,6 +2,7 @@ import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { FirebaseAuthProvider } from './contexts/FirebaseAuthContext';
 import { ThemeProvider } from './contexts/ThemeContext';
+import { EditModeProvider } from './contexts/EditModeContext';
 import { ToastProvider } from './contexts/ToastContext';
 import ProtectedRoute from './components/auth/ProtectedRoute';
 import Layout from './components/layout/Layout';
@@ -11,6 +12,7 @@ import UploadPage from './pages/UploadPage';
 import AnalysisPage from './pages/AnalysisPage';
 import HistoryPage from './pages/HistoryPage';
 import NotFoundPage from './pages/NotFoundPage';
+import TestResumePage from './pages/TestResumePage';
 import './styles/globals.css';
 
 const queryClient = new QueryClient({
@@ -28,9 +30,10 @@ function App() {
     <QueryClientProvider client={queryClient}>
       <Router>
         <ThemeProvider>
-          <FirebaseAuthProvider>
-            <ToastProvider>
-            <Routes>
+          <EditModeProvider>
+            <FirebaseAuthProvider>
+              <ToastProvider>
+              <Routes>
             {/* Mixed public/protected routes with Layout */}
             <Route element={<Layout />}>
               {/* Public routes - accessible to everyone */}
@@ -39,6 +42,7 @@ function App() {
               <Route path="/upload" element={<UploadPage />} />
               <Route path="/analysis" element={<AnalysisPage />} />
               <Route path="/analysis/:analysisId" element={<AnalysisPage />} />
+              <Route path="/test" element={<TestResumePage />} />
               
               {/* Protected routes - require authentication */}
               <Route path="/dashboard" element={
@@ -56,8 +60,9 @@ function App() {
               <Route path="*" element={<NotFoundPage />} />
             </Route>
           </Routes>
-            </ToastProvider>
-          </FirebaseAuthProvider>
+              </ToastProvider>
+            </FirebaseAuthProvider>
+          </EditModeProvider>
         </ThemeProvider>
       </Router>
     </QueryClientProvider>

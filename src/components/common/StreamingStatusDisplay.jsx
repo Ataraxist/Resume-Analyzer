@@ -34,7 +34,7 @@ function StreamingStatusDisplay({
                 </>
               ) : (
                 <>
-                  {type === 'parsing' ? 'Preparing to parse resume' : 'Preparing analysis'}...
+                  {type === 'parsing' ? 'Getting ready to extract your data' : 'Preparing analysis'}...
                 </>
               )}
             </p>
