@@ -12,7 +12,6 @@ import UploadPage from './pages/UploadPage';
 import AnalysisPage from './pages/AnalysisPage';
 import HistoryPage from './pages/HistoryPage';
 import NotFoundPage from './pages/NotFoundPage';
-import TestResumePage from './pages/TestResumePage';
 import './styles/globals.css';
 
 const queryClient = new QueryClient({
@@ -42,7 +41,6 @@ function App() {
               <Route path="/upload" element={<UploadPage />} />
               <Route path="/analysis" element={<AnalysisPage />} />
               <Route path="/analysis/:analysisId" element={<AnalysisPage />} />
-              <Route path="/test" element={<TestResumePage />} />
               
               {/* Protected routes - require authentication */}
               <Route path="/dashboard" element={

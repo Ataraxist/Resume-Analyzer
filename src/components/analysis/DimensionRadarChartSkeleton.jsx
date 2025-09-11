@@ -85,15 +85,15 @@ function DimensionRadarChartSkeleton() {
         </div>
         
         {/* Legend Skeleton - Right side on large screens, below on small screens */}
-        <div className="mt-4 lg:mt-0 pt-4 lg:pt-0 border-t lg:border-t-0 lg:border-l border-gray-200 lg:pl-8 lg:w-80">
+        <div className="mt-4 lg:mt-0 pt-4 lg:pt-0 border-t lg:border-t-0 lg:border-l border-gray-200 dark:border-gray-700 lg:pl-8 lg:w-80">
           <div className="space-y-2">
             {dimensions.map((dimension, idx) => (
               <div 
                 key={idx} 
-                className="flex items-center justify-between p-3 rounded bg-gray-50"
+                className="flex items-center justify-between p-3 rounded bg-gray-50 dark:bg-gray-800"
               >
-                <div className="h-4 bg-gray-200 rounded w-24"></div>
-                <div className="h-4 bg-gray-200 rounded w-12"></div>
+                <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-24"></div>
+                <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-12"></div>
               </div>
             ))}
           </div>
@@ -101,8 +101,8 @@ function DimensionRadarChartSkeleton() {
       </div>
       
       {/* Progress indicator */}
-      <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-gray-200 overflow-hidden">
-        <div className="h-full bg-gray-300 animate-pulse w-full"></div>
+      <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-gray-200 dark:bg-gray-700 overflow-hidden">
+        <div className="h-full bg-gray-300 dark:bg-gray-600 animate-pulse w-full"></div>
       </div>
     </div>
   );

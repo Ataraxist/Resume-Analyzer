@@ -27,35 +27,38 @@ function Header() {
           
           {/* User Menu */}
           <div className="flex items-center space-x-4">
-            {/* User Menu / Auth Buttons */}
-            {isAuthenticated ? (
-              <div className="relative">
+            {/* Profile Icon Dropdown - Always Visible */}
+            <div className="relative">
               <button
                 onClick={() => setShowUserMenu(!showUserMenu)}
                 className="flex items-center space-x-2 px-3 py-2 rounded-md text-sm font-medium text-gray-600 dark:text-gray-300 hover:text-primary-600 dark:hover:text-primary-400 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
               >
                 <User className="h-5 w-5" />
-                <span>{user?.username || user?.email}</span>
+                <span>{user?.email || 'Guest'}</span>
                 <ChevronDown className="h-4 w-4" />
               </button>
               
               {showUserMenu && (
                 <div className="absolute right-0 mt-2 w-48 bg-white dark:bg-gray-800 rounded-md shadow-lg py-1 z-50 border border-gray-200 dark:border-gray-700">
-                  <div className="px-4 py-2 border-b border-gray-200 dark:border-gray-700">
-                    <p className="text-sm font-medium text-gray-900 dark:text-white">{user?.fullName || user?.username}</p>
-                    <p className="text-xs text-gray-500 dark:text-gray-400">{user?.email}</p>
-                  </div>
+                  {isAuthenticated && (
+                    <div className="px-4 py-2 border-b border-gray-200 dark:border-gray-700">
+                      <p className="text-sm font-medium text-gray-900 dark:text-white">{user?.email || 'Anonymous'}</p>
+                      <p className="text-xs text-gray-500 dark:text-gray-400">{user?.email ? 'Signed in' : 'Not signed in'}</p>
+                    </div>
+                  )}
                   
-                  <Link
-                    to="/history"
-                    className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-700"
-                    onClick={() => setShowUserMenu(false)}
-                  >
-                    <span className="flex items-center">
-                      <History className="h-4 w-4 mr-2" />
-                      Analysis History
-                    </span>
-                  </Link>
+                  {isAuthenticated && (
+                    <Link
+                      to="/history"
+                      className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-700"
+                      onClick={() => setShowUserMenu(false)}
+                    >
+                      <span className="flex items-center">
+                        <History className="h-4 w-4 mr-2" />
+                        Analysis History
+                      </span>
+                    </Link>
+                  )}
                   
                   <button
                     onClick={() => {
@@ -74,7 +77,7 @@ function Header() {
                     </span>
                   </button>
                   
-                  {isAnonymous ? (
+                  {!isAuthenticated || isAnonymous ? (
                     <button
                       onClick={() => {
                         setShowUserMenu(false);
@@ -100,15 +103,7 @@ function Header() {
                   )}
                 </div>
               )}
-              </div>
-            ) : (
-              <button
-                onClick={() => setShowAuthModal(true)}
-                className="px-4 py-2 text-sm font-medium text-white bg-primary-600 rounded-md hover:bg-primary-700 transition-colors"
-              >
-                Sign In / Sign Up
-              </button>
-            )}
+            </div>
           </div>
         </div>
       </div>

@@ -5,20 +5,19 @@ import ProcessingStatus from '../components/resume/ProcessingStatus';
 import ResumeViewer from '../components/resume-viewer/ResumeViewer';
 import PreviousResumes from '../components/resume/PreviousResumes';
 import StreamingStatusDisplay from '../components/common/StreamingStatusDisplay';
-import FloatingEditButton from '../components/common/FloatingEditButton';
 import firebaseResumeService from '../services/firebaseResumeService';
 import { useAuth } from '../contexts/FirebaseAuthContext';
 import { useEditMode } from '../contexts/EditModeContext';
 import { getExpectedParsingFields } from '../utils/statusFormatters';
 import toastService from '../services/toastService';
 import { logError } from '../utils/errorHandler';
-import { Briefcase, ArrowLeft, Upload } from 'lucide-react';
+import { Briefcase, ArrowLeft, ArrowRight, Upload, Pencil, Eye } from 'lucide-react';
 
 function UploadPage() {
   const navigate = useNavigate();
   const location = useLocation();
   const { user, createAnonymousSession } = useAuth();
-  const { isEditMode } = useEditMode();
+  const { isEditMode, toggleEditMode } = useEditMode();
   const [selectedOccupation, setSelectedOccupation] = useState(null);
   const [resumeId, setResumeId] = useState(null);
   const [processingStatus, setProcessingStatus] = useState(null);
@@ -441,15 +440,40 @@ function UploadPage() {
                 disabled={processingStatus === 'processing'}
               >
                 <Upload className="h-4 w-4 mr-2" />
-                Upload New Document
+                Upload New
+              </button>
+              
+              <button
+                onClick={toggleEditMode}
+                className="btn btn-secondary flex items-center"
+                disabled={processingStatus === 'processing'}
+              >
+                {isEditMode ? (
+                  <>
+                    <Eye className="h-4 w-4 mr-2" />
+                    View
+                  </>
+                ) : (
+                  <>
+                    <Pencil className="h-4 w-4 mr-2" />
+                    Edit
+                  </>
+                )}
               </button>
               
               <button
                 onClick={handleContinue}
-                className="btn btn-primary"
+                className="btn btn-primary flex items-center"
                 disabled={processingStatus === 'processing' || !structuredData?.personal_information}
               >
-                {processingStatus === 'processing' ? 'Processing...' : 'Continue to Analysis'}
+                {processingStatus === 'processing' ? (
+                  'Processing...'
+                ) : (
+                  <>
+                    <ArrowRight className="h-4 w-4 mr-2" />
+                    Analyze
+                  </>
+                )}
               </button>
             </div>
           </div>
@@ -461,9 +485,6 @@ function UploadPage() {
             editable={isEditMode}
             isLoading={processingStatus === 'processing'}
           />
-          
-          {/* Floating Edit Mode Toggle */}
-          <FloatingEditButton />
         </div>
       )}
     </>
