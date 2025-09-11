@@ -957,7 +957,23 @@ async function parseResumeWithStreaming(
       throw new Error('metadata.source is required');
     }
 
-    if (streamCallback) streamCallback({ type: 'stream_started' });
+    if (streamCallback) {
+      streamCallback({ type: 'stream_started' });
+      streamCallback({ 
+        type: 'initializing', 
+        message: 'Getting things ready...', 
+        progress: 5 
+      });
+    }
+
+    // Prepare to connect to OpenAI
+    if (streamCallback) {
+      streamCallback({ 
+        type: 'connecting', 
+        message: 'Connecting to the AI Service...', 
+        progress: 8 
+      });
+    }
 
     // Start streaming using Responses API
     const stream = await openai.responses.create({
@@ -982,9 +998,19 @@ async function parseResumeWithStreaming(
     let previousState = {};
     const completedFields = new Set();
     let totalUpdates = 0;
+    let streamStarted = false;
 
     // Consume SSE events
     for await (const event of stream) {
+      // Send "beginning extraction" message on first event
+      if (!streamStarted && streamCallback) {
+        streamCallback({ 
+          type: 'extracting', 
+          message: 'Beginning Extraction...', 
+          progress: 10 
+        });
+        streamStarted = true;
+      }
       // Append deltas from any output_text.delta-like events
       if (event?.type && typeof event.type === 'string' && event.type.includes('output_text.delta')) {
         const delta = event.delta ?? event?.data ?? '';

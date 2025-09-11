@@ -30,11 +30,15 @@ function StreamingStatusDisplay({
             <p className="text-lg font-medium text-gray-900 dark:text-white transition-all duration-300">
               {currentOperation ? (
                 <>
-                  {actionVerb} {formatter(currentOperation)}...
+                  {/* Check if it's a status message or a field name */}
+                  {currentOperation.includes('...') ? 
+                    currentOperation : 
+                    `${actionVerb} ${formatter(currentOperation)}...`
+                  }
                 </>
               ) : (
                 <>
-                  {type === 'parsing' ? 'Getting ready to extract your data' : 'Preparing analysis'}...
+                  {type === 'parsing' ? 'Preparing to process your resume' : 'Preparing analysis'}...
                 </>
               )}
             </p>

@@ -89,7 +89,23 @@ function UploadPage() {
         currentUser.uid,
         (chunk) => {
           // Handle different types of streaming chunks
-          if (chunk.type === 'field_completed') {
+          if (chunk.type === 'stream_started') {
+            // Stream has started, show initial feedback
+            setParseProgress(5);
+            setCurrentParsingField('Getting things ready...');
+          } else if (chunk.type === 'initializing') {
+            // Parser is initializing
+            setParseProgress(chunk.progress || 5);
+            setCurrentParsingField(chunk.message || 'Getting things ready...');
+          } else if (chunk.type === 'connecting') {
+            // Connecting to AI service
+            setParseProgress(chunk.progress || 8);
+            setCurrentParsingField(chunk.message || 'Connecting to the AI Service...');
+          } else if (chunk.type === 'extracting') {
+            // Beginning extraction
+            setParseProgress(chunk.progress || 10);
+            setCurrentParsingField(chunk.message || 'Beginning Extraction...');
+          } else if (chunk.type === 'field_completed') {
             // Simple field update
             setStructuredData(prev => ({
               ...prev,
@@ -219,7 +235,23 @@ function UploadPage() {
         null,
         (chunk) => {
           // Handle different types of streaming chunks
-          if (chunk.type === 'field_completed') {
+          if (chunk.type === 'stream_started') {
+            // Stream has started, show initial feedback
+            setParseProgress(5);
+            setCurrentParsingField('Getting things ready...');
+          } else if (chunk.type === 'initializing') {
+            // Parser is initializing
+            setParseProgress(chunk.progress || 5);
+            setCurrentParsingField(chunk.message || 'Getting things ready...');
+          } else if (chunk.type === 'connecting') {
+            // Connecting to AI service
+            setParseProgress(chunk.progress || 8);
+            setCurrentParsingField(chunk.message || 'Connecting to the AI Service...');
+          } else if (chunk.type === 'extracting') {
+            // Beginning extraction
+            setParseProgress(chunk.progress || 10);
+            setCurrentParsingField(chunk.message || 'Beginning Extraction...');
+          } else if (chunk.type === 'field_completed') {
             // Simple field update
             setStructuredData(prev => ({
               ...prev,
