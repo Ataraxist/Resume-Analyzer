@@ -11,6 +11,57 @@ const {
 
 const db = getFirestore();
 
+/**
+ * Recursively removes empty objects, arrays, and null values from nested data
+ * This reduces the size of data sent to AI analysis APIs
+ * @param {any} obj - The object to clean
+ * @returns {any} - The cleaned object, or null if empty
+ */
+function removeEmptyNested(obj) {
+  // Handle null/undefined
+  if (obj === null || obj === undefined) return null;
+  
+  // Handle arrays - filter out empty items
+  if (Array.isArray(obj)) {
+    const filtered = obj
+      .map(item => removeEmptyNested(item))
+      .filter(item => {
+        if (item === null || item === undefined) return false;
+        if (typeof item === 'string' && item.trim() === '') return false;
+        if (Array.isArray(item) && item.length === 0) return false;
+        if (typeof item === 'object' && Object.keys(item).length === 0) return false;
+        return true;
+      });
+    return filtered.length > 0 ? filtered : null;
+  }
+  
+  // Handle objects - remove empty properties
+  if (typeof obj === 'object') {
+    const cleaned = {};
+    for (const [key, value] of Object.entries(obj)) {
+      const cleanedValue = removeEmptyNested(value);
+      
+      // Only keep properties with meaningful values
+      if (cleanedValue !== null && cleanedValue !== undefined) {
+        // Skip empty strings, arrays, and objects
+        if (typeof cleanedValue === 'string' && cleanedValue.trim() === '') continue;
+        if (Array.isArray(cleanedValue) && cleanedValue.length === 0) continue;
+        if (typeof cleanedValue === 'object' && Object.keys(cleanedValue).length === 0) continue;
+        
+        cleaned[key] = cleanedValue;
+      }
+    }
+    return Object.keys(cleaned).length > 0 ? cleaned : null;
+  }
+  
+  // Handle primitives (string, number, boolean)
+  if (typeof obj === 'string') {
+    return obj.trim() || null;
+  }
+  
+  return obj;
+}
+
 async function analyzeResume(request, response) {
   // Extract data and auth from the v2 request object
   const { data, auth } = request;
@@ -69,6 +120,14 @@ async function analyzeResume(request, response) {
     if (resumeData.userId !== userId) {
       throw new HttpsError('permission-denied', 'Access denied to this resume');
     }
+    
+    // Clean the resume data by removing empty nested objects/arrays
+    // This reduces the payload size sent to AI analysis
+    if (resumeData.structuredData) {
+      const cleanedStructuredData = removeEmptyNested(resumeData.structuredData);
+      // Create a cleaned copy for analysis while preserving original
+      resumeData.structuredDataForAnalysis = cleanedStructuredData || {};
+    }
 
     // Get occupation data
     const occupationDoc = await db.collection('occupations').doc(occupationCode).get();
@@ -125,8 +184,9 @@ async function analyzeResume(request, response) {
     });
 
     // Perform dimension analysis with streaming using new comparator
+    // Use cleaned data for analysis to reduce API payload size
     const dimensionScores = await analyzeDimensionsWithComparator(
-      resumeData.structuredData,
+      resumeData.structuredDataForAnalysis || resumeData.structuredData,
       occupationDimensions,
       response,
       async () => {
