@@ -29,7 +29,7 @@ export const functions = getFunctions(app, 'us-central1');
 export const storage = getStorage(app);
 
 // Connect to emulators in development
-if (import.meta.env.DEV && import.meta.env.VITE_USE_EMULATORS === 'true') {
+if (import.meta.env.DEV) {
   connectAuthEmulator(auth, 'http://localhost:9099');
   connectFirestoreEmulator(db, 'localhost', 8080);
   connectFunctionsEmulator(functions, 'localhost', 5001);
